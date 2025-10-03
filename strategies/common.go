@@ -1,0 +1,439 @@
+// strategies/common.go
+// Общие функции для всех стратегий
+
+package strategies
+
+import (
+	"bt/internal"
+	"math"
+	"strconv"
+)
+
+// calculateSMACommon вычисляет простую скользящую среднюю
+func calculateSMACommon(candles []internal.Candle, period int) []float64 {
+	if len(candles) < period {
+		return nil
+	}
+
+	sma := make([]float64, len(candles))
+	for i := 0; i < period-1; i++ {
+		sma[i] = 0
+	}
+
+	for i := period - 1; i < len(candles); i++ {
+		sum := 0.0
+		for j := i - period + 1; j <= i; j++ {
+			sum += candles[j].Close.ToFloat64()
+		}
+		sma[i] = sum / float64(period)
+	}
+
+	return sma
+}
+
+// calculateRSICommon вычисляет RSI
+func calculateRSICommon(candles []internal.Candle, period int) []float64 {
+	if len(candles) < period+1 {
+		return nil
+	}
+
+	rsi := make([]float64, len(candles))
+	for i := 0; i < period; i++ {
+		rsi[i] = 0
+	}
+
+	// Рассчитываем изменения цен
+	var gains, losses []float64
+	for i := 1; i <= period; i++ {
+		change := candles[i].Close.ToFloat64() - candles[i-1].Close.ToFloat64()
+		if change > 0 {
+			gains = append(gains, change)
+			losses = append(losses, 0)
+		} else {
+			gains = append(gains, 0)
+			losses = append(losses, -change)
+		}
+	}
+
+	avgGain := avgCommon(gains)
+	avgLoss := avgCommon(losses)
+
+	if avgLoss == 0 {
+		rsi[period] = 100
+	} else {
+		rs := avgGain / avgLoss
+		rsi[period] = 100 - (100 / (1 + rs))
+	}
+
+	// Рассчитываем RSI для остальных свечей
+	for i := period + 1; i < len(candles); i++ {
+		change := candles[i].Close.ToFloat64() - candles[i-1].Close.ToFloat64()
+		gain := 0.0
+		loss := 0.0
+		if change > 0 {
+			gain = change
+		} else {
+			loss = -change
+		}
+
+		avgGain = (avgGain*float64(period-1) + gain) / float64(period)
+		avgLoss = (avgLoss*float64(period-1) + loss) / float64(period)
+
+		if avgLoss == 0 {
+			rsi[i] = 100
+		} else {
+			rs := avgGain / avgLoss
+			rsi[i] = 100 - (100 / (1 + rs))
+		}
+	}
+
+	return rsi
+}
+
+// avgCommon вычисляет среднее значение
+func avgCommon(xs []float64) float64 {
+	if len(xs) == 0 {
+		return 0
+	}
+	var sum float64
+	for _, x := range xs {
+		sum += x
+	}
+	return sum / float64(len(xs))
+}
+
+// calculateRollingMin вычисляет скользящий минимум
+func calculateRollingMin(candles []internal.Candle, period int) []float64 {
+	if len(candles) < period {
+		return nil
+	}
+
+	minValues := make([]float64, len(candles))
+	for i := 0; i < period-1; i++ {
+		minValues[i] = 0
+	}
+
+	for i := period - 1; i < len(candles); i++ {
+		min := candles[i].Low.ToFloat64()
+		for j := i - period + 1; j <= i; j++ {
+			if candles[j].Low.ToFloat64() < min {
+				min = candles[j].Low.ToFloat64()
+			}
+		}
+		minValues[i] = min
+	}
+
+	return minValues
+}
+
+// calculateRollingMax вычисляет скользящий максимум
+func calculateRollingMax(candles []internal.Candle, period int) []float64 {
+	if len(candles) < period {
+		return nil
+	}
+
+	maxValues := make([]float64, len(candles))
+	for i := 0; i < period-1; i++ {
+		maxValues[i] = 0
+	}
+
+	for i := period - 1; i < len(candles); i++ {
+		max := candles[i].High.ToFloat64()
+		for j := i - period + 1; j <= i; j++ {
+			if candles[j].High.ToFloat64() > max {
+				max = candles[j].High.ToFloat64()
+			}
+		}
+		maxValues[i] = max
+	}
+
+	return maxValues
+}
+
+// calculateStochastic вычисляет стохастический осциллятор (%K и %D)
+func calculateStochastic(candles []internal.Candle, kPeriod, dPeriod int) ([]float64, []float64) {
+	if len(candles) < kPeriod {
+		return nil, nil
+	}
+
+	kValues := make([]float64, len(candles))
+	for i := 0; i < kPeriod-1; i++ {
+		kValues[i] = 0
+	}
+
+	// Вычисляем %K
+	for i := kPeriod - 1; i < len(candles); i++ {
+		lowestLow := candles[i].Low.ToFloat64()
+		highestHigh := candles[i].High.ToFloat64()
+
+		for j := i - kPeriod + 1; j <= i; j++ {
+			if candles[j].Low.ToFloat64() < lowestLow {
+				lowestLow = candles[j].Low.ToFloat64()
+			}
+			if candles[j].High.ToFloat64() > highestHigh {
+				highestHigh = candles[j].High.ToFloat64()
+			}
+		}
+
+		if highestHigh-lowestLow == 0 {
+			kValues[i] = 50 // neutral value when range is 0
+		} else {
+			kValues[i] = 100 * (candles[i].Close.ToFloat64() - lowestLow) / (highestHigh - lowestLow)
+		}
+	}
+
+	// Вычисляем %D как SMA от %K
+	dValues := calculateSMACommonForValues(kValues, dPeriod)
+
+	return kValues, dValues
+}
+
+// calculateSMACommonForValues вычисляет SMA для массива значений
+func calculateSMACommonForValues(values []float64, period int) []float64 {
+	if len(values) < period {
+		return nil
+	}
+
+	sma := make([]float64, len(values))
+	for i := 0; i < period-1; i++ {
+		sma[i] = 0
+	}
+
+	for i := period - 1; i < len(values); i++ {
+		sum := 0.0
+		for j := i - period + 1; j <= i; j++ {
+			sum += values[j]
+		}
+		sma[i] = sum / float64(period)
+	}
+
+	return sma
+}
+
+// calculateEMA вычисляет экспоненциальную скользящую среднюю
+func calculateEMA(values []float64, period int) []float64 {
+	if len(values) < period {
+		return nil
+	}
+
+	ema := make([]float64, len(values))
+	multiplier := 2.0 / (float64(period) + 1.0)
+
+	// Для первых period значений используем SMA как начальное значение
+	sum := 0.0
+	for i := 0; i < period; i++ {
+		sum += values[i]
+	}
+	ema[period-1] = sum / float64(period)
+
+	// Вычисляем EMA для остальных значений
+	for i := period; i < len(values); i++ {
+		ema[i] = (values[i] * multiplier) + (ema[i-1] * (1 - multiplier))
+	}
+
+	return ema
+}
+
+// calculateMACD вычисляет MACD (MACD линия, сигнальная линия, гистограмма)
+func calculateMACD(candles []internal.Candle, fastPeriod, slowPeriod, signalPeriod int) ([]float64, []float64, []float64) {
+	if len(candles) < slowPeriod {
+		return nil, nil, nil
+	}
+
+	// Получаем цены закрытия
+	prices := make([]float64, len(candles))
+	for i, candle := range candles {
+		prices[i] = candle.Close.ToFloat64()
+	}
+
+	// Вычисляем быструю и медленную EMA
+	fastEMA := calculateEMA(prices, fastPeriod)
+	slowEMA := calculateEMA(prices, slowPeriod)
+	if fastEMA == nil || slowEMA == nil {
+		return nil, nil, nil
+	}
+
+	// Вычисляем MACD линию
+	macdLine := make([]float64, len(candles))
+	for i := 0; i < len(candles); i++ {
+		if fastEMA[i] == 0 || slowEMA[i] == 0 {
+			macdLine[i] = 0
+		} else {
+			macdLine[i] = fastEMA[i] - slowEMA[i]
+		}
+	}
+
+	// Вычисляем сигнальную линию (EMA от MACD)
+	signalLine := calculateEMA(macdLine, signalPeriod)
+	if signalLine == nil {
+		return nil, nil, nil
+	}
+
+	// Вычисляем гистограмму
+	histogram := make([]float64, len(candles))
+	for i := 0; i < len(candles); i++ {
+		histogram[i] = macdLine[i] - signalLine[i]
+	}
+
+	return macdLine, signalLine, histogram
+}
+
+// calculateMAChannel вычисляет коридор скользящих средних (верхний и нижний каналы)
+func calculateMAChannel(candles []internal.Candle, fastPeriod, slowPeriod int, multiplier float64) ([]float64, []float64) {
+	if len(candles) < slowPeriod {
+		return nil, nil
+	}
+
+	fastMA := calculateSMACommon(candles, fastPeriod)
+	slowMA := calculateSMACommon(candles, slowPeriod)
+	if fastMA == nil || slowMA == nil {
+		return nil, nil
+	}
+
+	upperChannel := make([]float64, len(candles))
+	lowerChannel := make([]float64, len(candles))
+
+	for i := 0; i < len(candles); i++ {
+		if fastMA[i] == 0 || slowMA[i] == 0 {
+			upperChannel[i] = 0
+			lowerChannel[i] = 0
+		} else {
+			diff := fastMA[i] - slowMA[i]
+			upperChannel[i] = slowMA[i] + diff*multiplier
+			lowerChannel[i] = slowMA[i] - diff*multiplier
+		}
+	}
+
+	return upperChannel, lowerChannel
+}
+
+// calculateCorrelation вычисляет коэффициент корреляции Пирсона между двумя временными рядами
+func calculateCorrelation(x, y []float64) float64 {
+	if len(x) != len(y) || len(x) < 2 {
+		return 0
+	}
+
+	n := float64(len(x))
+	sumX, sumY, sumXY, sumX2, sumY2 := 0.0, 0.0, 0.0, 0.0, 0.0
+
+	for i := 0; i < len(x); i++ {
+		sumX += x[i]
+		sumY += y[i]
+		sumXY += x[i] * y[i]
+		sumX2 += x[i] * x[i]
+		sumY2 += y[i] * y[i]
+	}
+
+	numerator := n*sumXY - sumX*sumY
+	denominatorX := n*sumX2 - sumX*sumX
+	denominatorY := n*sumY2 - sumY*sumY
+
+	if denominatorX <= 0 || denominatorY <= 0 {
+		return 0
+	}
+
+	return numerator / (math.Sqrt(denominatorX) * math.Sqrt(denominatorY))
+}
+
+// calculateRollingCorrelation вычисляет скользящую корреляцию между двумя временными рядами
+func calculateRollingCorrelation(x, y []float64, period int) []float64 {
+	if len(x) != len(y) || len(x) < period {
+		return nil
+	}
+
+	correlations := make([]float64, len(x))
+	for i := 0; i < period-1; i++ {
+		correlations[i] = 0
+	}
+
+	for i := period - 1; i < len(x); i++ {
+		xSlice := x[i-period+1 : i+1]
+		ySlice := y[i-period+1 : i+1]
+		correlations[i] = calculateCorrelation(xSlice, ySlice)
+	}
+
+	return correlations
+}
+
+// quantizePrice квантизует цену до заданного количества уровней
+func quantizePrice(price float64, levels int, priceStep float64) float64 {
+	if levels <= 1 || priceStep <= 0 {
+		return price
+	}
+
+	// Если priceStep задан, используем его как размер шага
+	if priceStep > 0 {
+		return math.Round(price/priceStep) * priceStep
+	}
+
+	// Если priceStep не задан, рассчитываем на основе levels
+	// Для простоты используем фиксированный диапазон, например, от 0 до 1000
+	// В реальности нужно анализировать диапазон цен
+	minPrice := 0.0
+	maxPrice := 1000.0
+
+	step := (maxPrice - minPrice) / float64(levels)
+	level := math.Floor((price - minPrice) / step)
+	quantized := minPrice + level*step + step/2.0 // центр уровня
+
+	return quantized
+}
+
+// quantizeCandles квантизует все цены в массиве свечей
+func quantizeCandles(candles []internal.Candle, levels int, priceStep float64) []internal.Candle {
+	if !shouldQuantize(levels, priceStep) {
+		return candles
+	}
+
+	quantized := make([]internal.Candle, len(candles))
+	copy(quantized, candles)
+
+	for i := range quantized {
+		quantizedPrice := quantizePrice(candles[i].Open.ToFloat64(), levels, priceStep)
+		quantized[i].Open = internal.Price{
+			Units: strconv.FormatInt(int64(quantizedPrice), 10),
+			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
+		}
+
+		quantizedPrice = quantizePrice(candles[i].High.ToFloat64(), levels, priceStep)
+		quantized[i].High = internal.Price{
+			Units: strconv.FormatInt(int64(quantizedPrice), 10),
+			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
+		}
+
+		quantizedPrice = quantizePrice(candles[i].Low.ToFloat64(), levels, priceStep)
+		quantized[i].Low = internal.Price{
+			Units: strconv.FormatInt(int64(quantizedPrice), 10),
+			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
+		}
+
+		quantizedPrice = quantizePrice(candles[i].Close.ToFloat64(), levels, priceStep)
+		quantized[i].Close = internal.Price{
+			Units: strconv.FormatInt(int64(quantizedPrice), 10),
+			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
+		}
+	}
+
+	return quantized
+}
+
+// shouldQuantize проверяет, нужно ли применять квантизацию
+func shouldQuantize(levels int, priceStep float64) bool {
+	return levels > 1 || priceStep > 0
+}
+
+// applyQuantizationToCandles применяет квантизацию к свечам если включена
+func ApplyQuantizationToCandles(candles []internal.Candle, params internal.StrategyParams) []internal.Candle {
+	if !params.QuantizationEnabled {
+		return candles
+	}
+
+	levels := params.QuantizationLevels
+	priceStep := params.QuantizationPriceStep
+
+	if levels == 0 {
+		levels = 10 // значение по умолчанию
+	}
+
+	return quantizeCandles(candles, levels, priceStep)
+}

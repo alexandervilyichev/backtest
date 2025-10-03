@@ -1,0 +1,1082 @@
+{
+    "candles": [      
+        {
+            "open": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "volume": "135982",
+            "time": "2025-09-18T12:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "volume": "1003104",
+            "time": "2025-09-18T13:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "volume": "702681",
+            "time": "2025-09-18T13:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 0
+            },
+            "close": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "volume": "774355",
+            "time": "2025-09-18T13:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 0
+            },
+            "high": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 0
+            },
+            "close": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "volume": "928895",
+            "time": "2025-09-18T13:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 0
+            },
+            "close": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "volume": "378954",
+            "time": "2025-09-18T14:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 0
+            },
+            "high": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "low": {
+                "units": "11",
+                "nano": 990000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "volume": "483292",
+            "time": "2025-09-18T14:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 0
+            },
+            "close": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "volume": "577951",
+            "time": "2025-09-18T14:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "volume": "241414",
+            "time": "2025-09-18T14:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "volume": "64993",
+            "time": "2025-09-18T15:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "volume": "443893",
+            "time": "2025-09-18T15:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "low": {
+                "units": "11",
+                "nano": 980000000
+            },
+            "close": {
+                "units": "11",
+                "nano": 990000000
+            },
+            "volume": "2360231",
+            "time": "2025-09-18T15:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 0
+            },
+            "high": {
+                "units": "12",
+                "nano": 0
+            },
+            "low": {
+                "units": "11",
+                "nano": 980000000
+            },
+            "close": {
+                "units": "11",
+                "nano": 980000000
+            },
+            "volume": "262968",
+            "time": "2025-09-18T15:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 70000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "volume": "2769003",
+            "time": "2025-09-19T07:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "volume": "587460",
+            "time": "2025-09-19T07:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "volume": "1483133",
+            "time": "2025-09-19T07:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "volume": "873157",
+            "time": "2025-09-19T07:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "volume": "185935",
+            "time": "2025-09-19T08:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "volume": "1061508",
+            "time": "2025-09-19T08:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 30000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 10000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "volume": "1144669",
+            "time": "2025-09-19T08:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 40000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 80000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 20000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 70000000
+            },
+            "volume": "3513032",
+            "time": "2025-09-19T08:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 70000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 60000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "volume": "923713",
+            "time": "2025-09-19T09:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 70000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "volume": "3193474",
+            "time": "2025-09-19T09:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 70000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "volume": "479269",
+            "time": "2025-09-19T09:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "volume": "1201031",
+            "time": "2025-09-19T09:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "volume": "122981",
+            "time": "2025-09-19T10:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "volume": "324768",
+            "time": "2025-09-19T10:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "volume": "523725",
+            "time": "2025-09-19T10:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 140000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "volume": "4164740",
+            "time": "2025-09-19T10:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "volume": "904381",
+            "time": "2025-09-19T11:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 80000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "volume": "687148",
+            "time": "2025-09-19T11:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 80000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "volume": "760094",
+            "time": "2025-09-19T11:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 80000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "volume": "726051",
+            "time": "2025-09-19T11:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 70000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "volume": "1638353",
+            "time": "2025-09-19T12:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "volume": "422478",
+            "time": "2025-09-19T12:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "volume": "1016537",
+            "time": "2025-09-19T12:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 80000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "volume": "936918",
+            "time": "2025-09-19T12:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 60000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "volume": "939461",
+            "time": "2025-09-19T13:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 70000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 80000000
+            },
+            "volume": "769571",
+            "time": "2025-09-19T13:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 80000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 70000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "volume": "926013",
+            "time": "2025-09-19T13:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 130000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 80000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "volume": "1907118",
+            "time": "2025-09-19T13:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 130000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 100000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "volume": "967545",
+            "time": "2025-09-19T14:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 90000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "volume": "1135545",
+            "time": "2025-09-19T14:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 140000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 140000000
+            },
+            "volume": "1595204",
+            "time": "2025-09-19T14:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 130000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 150000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 150000000
+            },
+            "volume": "2131637",
+            "time": "2025-09-19T14:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 140000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 160000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 140000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 160000000
+            },
+            "volume": "3098270",
+            "time": "2025-09-19T15:00:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 160000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 180000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 140000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 170000000
+            },
+            "volume": "2246710",
+            "time": "2025-09-19T15:15:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 170000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 170000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 120000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 140000000
+            },
+            "volume": "1843037",
+            "time": "2025-09-19T15:30:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        },
+        {
+            "open": {
+                "units": "12",
+                "nano": 150000000
+            },
+            "high": {
+                "units": "12",
+                "nano": 150000000
+            },
+            "low": {
+                "units": "12",
+                "nano": 110000000
+            },
+            "close": {
+                "units": "12",
+                "nano": 130000000
+            },
+            "volume": "370367",
+            "time": "2025-09-19T15:45:00Z",
+            "isComplete": true,
+            "candleSource": "CANDLE_SOURCE_EXCHANGE"
+        }
+    ]
+}
