@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	API_TOKEN     = "t.dEwJPvwu9R2rnTNc0nHe4UrvXiMep7BhJ-9nb_alMejvwToP_Pr308u5iUqnLqLu_NxUitjIly2t2hIUx_PMiw"
+	API_TOKEN     = "NEW_TOKEN"
 	INSTRUMENT_ID = "TCS60A101X76"
 	INTERVAL      = "CANDLE_INTERVAL_30_MIN"
 	LIMIT         = 1000
