@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Signals Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .chart-container {
+            position: relative;
+            height: 600px;
+        }
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 0 5px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .signal-legend {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 0 15px;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .file-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            flex-wrap: wrap;
+        }
+        .file-selector input[type="file"] {
+            margin-right: 10px;
+        }
+        .file-selector button {
+            padding: 6px 12px;
+            background-color: #28a745;
+        }
+        .file-selector button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Trading Signals Visualization</h1>
+
+        <div class="file-selector">
+            <div style="margin-bottom: 10px;">
+                <label style="margin-right: 10px; font-weight: bold;">Quick Load:</label>
+                <select id="quick-select" onchange="loadQuickFile(this.value)" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
+                    <option value="">Select a file...</option>
+                    <option value="tmos_cci_oscillator_signals.json">CCI Oscillator Signals (TMOS)</option>
+                    <option value="tmos_big_cci_oscillator_signals.json">CCI Oscillator Signals Big (TMOS)</option>
+                    <option value="tmos_big_momentum_breakout_signals.json">Momentum Breakout Signals Big (TMOS)</option>
+                    <option value="tmos_big_rsi_oscillator_signals.json">RSI Oscillator Signals Big (TMOS)</option>
+                </select>
+            </div>
+            <div>
+                <label for="file-input" style="margin-right: 10px;">Or choose custom file:</label>
+                <input type="file" id="file-input" accept=".json" style="margin-right: 10px;">
+                <button onclick="loadSelectedFile()">Load Custom File</button>
+                <small style="margin-left: 10px; color: #666;">Default: tmos_cci_oscillator_signals.json</small>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div id="strategy-info">Strategy: Loading...</div>
+            <div id="profit-info">Profit: Loading...</div>
+            <div id="data-points-info">Data Points: Loading...</div>
+        </div>
+
+        <div class="signal-legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #4CAF50;"></div>
+                Buy Signal (1)
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #f44336;"></div>
+                Sell Signal (2)
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #9E9E9E;"></div>
+                No Signal (0)
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
+
+        <div class="controls">
+            <button onclick="resetZoom()">Reset Zoom</button>
+            <button onclick="toggleSignals()">Toggle Signals</button>
+        </div>
+    </div>
+
+    <script>
+        // Register Chart.js Financial components after they load
+        setTimeout(() => {
+            if (Chart && Chart.register) {
+                Chart.register(Chart.controllers.candlestick);
+            }
+        }, 100);
+
+        let chart;
+        let signalsVisible = true;
+
+        function loadData() {
+            // For demo purposes, embedding a sample of the data directly
+            // In production, this should load from your JSON file
+            return {
+                "strategy": "cci_oscillator",
+                "profit": 0.07193080357142881,
+                "candles": [
+                    {"time": "2025-08-01T10:00:00Z", "open": 6.36, "high": 6.36, "low": 6.34, "close": 6.34, "volume": 630323, "signal": 0},
+                    {"time": "2025-08-01T10:30:00Z", "open": 6.36, "high": 6.36, "low": 6.34, "close": 6.35, "volume": 613366, "signal": 0},
+                    {"time": "2025-08-06T14:30:00Z", "open": 6.4, "high": 6.4, "low": 6.38, "close": 6.39, "volume": 864395, "signal": 1}
+                ]
+            };
+        }
+
+        async function loadDataFromFile() {
+            try {
+                const response = await fetch('./tmos_cci_oscillator_signals.json');
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error loading data, using sample data:', error);
+                return new Promise(resolve => resolve(loadData())); // Fallback to sample data
+            }
+        }
+
+        function parseData(data) {
+            const candles = [];
+            const buySignals = [];
+            const sellSignals = [];
+
+            data.candles.forEach((candle, index) => {
+                const timestamp = new Date(candle.time).getTime();
+
+                candles.push({
+                    x: timestamp,
+                    o: candle.open,
+                    h: candle.high,
+                    l: candle.low,
+                    c: candle.close,
+                    v: candle.volume
+                });
+
+                if (candle.signal === 1) {
+                    buySignals.push({
+                        x: timestamp,
+                        y: candle.low - 0.01, // Position below lowest point
+                        signal: candle.signal
+                    });
+                } else if (candle.signal === 2) {
+                    sellSignals.push({
+                        x: timestamp,
+                        y: candle.high + 0.01, // Position above highest point
+                        signal: candle.signal
+                    });
+                }
+            });
+
+            return { candles, buySignals, sellSignals };
+        }
+
+        function createChart(data) {
+            const ctx = document.getElementById('chart').getContext('2d');
+
+            const { candles, buySignals, sellSignals } = parseData(data);
+
+            // Update info panel
+            document.getElementById('strategy-info').textContent = `Strategy: ${data.strategy}`;
+            document.getElementById('profit-info').textContent = `Profit: ${(data.profit * 100).toFixed(2)}%`;
+            document.getElementById('data-points-info').textContent = `Data Points: ${candles.length}`;
+
+            // Create price line data
+            const priceData = candles.map(c => ({
+                x: c.x,
+                y: c.c // Use closing price for the line
+            }));
+
+            chart = new Chart(ctx, {
+                data: {
+                    datasets: [{
+                        label: 'Closing Price',
+                        data: priceData,
+                        type: 'line',
+                        borderColor: '#2196F3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        pointRadius: 2,
+                        fill: true,
+                        tension: 0.1
+                    }, {
+                        label: 'Buy Signals',
+                        data: buySignals,
+                        type: 'scatter',
+                        backgroundColor: '#4CAF50',
+                        borderColor: '#4CAF50',
+                        pointStyle: 'triangle',
+                        pointRadius: 8,
+                        rotation: 0,
+                        showLine: false
+                    }, {
+                        label: 'Sell Signals',
+                        data: sellSignals,
+                        type: 'scatter',
+                        backgroundColor: '#f44336',
+                        borderColor: '#f44336',
+                        pointStyle: 'triangle',
+                        pointRadius: 8,
+                        rotation: 180,
+                        showLine: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x'
+                            },
+                            zoom: {
+                                wheel: {
+                                    enabled: true
+                                },
+                                pinch: {
+                                    enabled: true
+                                },
+                                mode: 'x'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const data = context.raw;
+                                    if (context.datasetIndex === 0) {
+                                        return `Price: ${data.y}`;
+                                    } else if (context.datasetIndex === 1) {
+                                        return 'Buy Signal';
+                                    } else if (context.datasetIndex === 2) {
+                                        return 'Sell Signal';
+                                    }
+                                    return '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                displayFormats: {
+                                    hour: 'MMM dd HH:mm',
+                                    day: 'MMM dd'
+                                }
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Price'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function resetZoom() {
+            if (chart) {
+                chart.resetZoom();
+            }
+        }
+
+        function toggleSignals() {
+            if (chart) {
+                signalsVisible = !signalsVisible;
+                const buyDataset = chart.data.datasets[1];
+                const sellDataset = chart.data.datasets[2];
+
+                if (signalsVisible) {
+                    buyDataset.hidden = false;
+                    sellDataset.hidden = false;
+                } else {
+                    buyDataset.hidden = true;
+                    sellDataset.hidden = true;
+                }
+
+                chart.update();
+            }
+        }
+
+        async function loadSelectedFile() {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+
+            try {
+                const data = await readFileAsJson(file);
+                if (data && data.candles && Array.isArray(data.candles)) {
+                    // Destroy existing chart if it exists
+                    if (chart) {
+                        chart.destroy();
+                    }
+                    createChart(data);
+                } else {
+                    alert('Invalid file format. Please select a valid signals JSON file.');
+                }
+            } catch (error) {
+                console.error('Error loading file:', error);
+                alert('Error loading file. Please check the file format.');
+            }
+        }
+
+        function readFileAsJson(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        resolve(data);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        async function loadQuickFile(filename) {
+            if (!filename) return;
+
+            try {
+                const response = await fetch(`./${filename}`);
+                const data = await response.json();
+                if (data && data.candles && Array.isArray(data.candles)) {
+                    // Destroy existing chart if it exists
+                    if (chart) {
+                        chart.destroy();
+                    }
+                    createChart(data);
+                    // Reset dropdown selection after successful load
+                    setTimeout(() => {
+                        document.getElementById('quick-select').value = filename;
+                    }, 100);
+                } else {
+                    alert('Invalid file format. The selected file may not be a valid signals JSON file.');
+                }
+            } catch (error) {
+                console.error('Error loading file:', error);
+                alert('Error loading file. Please check if the file exists and is valid.');
+            }
+        }
+
+        // Initialize with default file
+        (async () => {
+            try {
+                const data = await loadDataFromFile();
+                if (data) {
+                    createChart(data);
+                    // Set default selection
+                    document.getElementById('quick-select').value = 'tmos_cci_oscillator_signals.json';
+                } else {
+                    document.querySelector('.container').innerHTML = '<h1>Error loading data</h1>';
+                }
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                // Fallback to sample data
+                const data = loadData();
+                createChart(data);
+            }
+        })();
+    </script>
+</body>
+</html>

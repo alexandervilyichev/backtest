@@ -1,0 +1,92 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# Go build cache
+.cache/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Configuration files
+config.local.*
+*.local
+
+# Generated files
+backtester.exe
+backtester
+
+# HTML visualization cache
+chart_visualization_cache/
+
+# Node modules if any JS dependencies are added
+node_modules/
+
+# Build directories
+build/
+dist/
+
+# Data files (uncomment if you want to exclude data files)
+# *.json (but leave specific ones you want to keep)
+
+# Market data files (uncomment as needed)
+# candles.json
+# tmos.json
+# tbru.json
+# etc.
+
+# Signal files (uncomment if these are generated)
+# *_signals.json
+
+# Test results
+test-results/
+coverage.html
+coverage.xml
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Lock files
+*.lock

@@ -42,7 +42,7 @@ import "bt/internal"
 type MovingAverageCrossoverStrategy struct{}
 
 func (s *MovingAverageCrossoverStrategy) Name() string {
-	return "moving_average_crossover"
+	return "ma_crossover"
 }
 
 func (s *MovingAverageCrossoverStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
