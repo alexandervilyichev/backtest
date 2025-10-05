@@ -44,7 +44,9 @@
     "MinWaveLength": 0,
     "MaxWaveLength": 0,
     "FibonacciThreshold": 0,
-    "TrendStrength": 0
+    "TrendStrength": 0,
+    "BollingerBandsPeriod": 0,
+    "BollingerBandsMultiplier": 0
   },
   "profit": 0.07193080357142881,
   "candles": [

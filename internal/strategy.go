@@ -48,6 +48,10 @@ type StrategyParams struct {
 	MaxWaveLength             int
 	FibonacciThreshold        float64
 	TrendStrength             float64
+	BollingerBandsPeriod      int
+	BollingerBandsMultiplier  float64
+	SmoothingType             string
+	SmoothingPeriod           int
 }
 
 type Strategy interface {

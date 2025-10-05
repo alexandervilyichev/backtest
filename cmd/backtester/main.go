@@ -80,7 +80,7 @@ func parseFlags() Config {
 	filename := flag.String("file", "C:/Users/alexa/OneDrive/Документы/Projects/backtest/candles.json", "Путь к JSON-файлу со свечами")
 	strategyName := flag.String("strategy", "all", "Стратегия: all (все стратегии) или "+strings.Join(internal.GetStrategyNames(), ", "))
 	debug := flag.Bool("debug", false, "Включить детальное логирование")
-	saveSignals := flag.Int("save_signals", 3, "Сохранить топ-N стратегий с сигналами (0 = не сохранять)")
+	saveSignals := flag.Int("save_signals", 0, "Сохранить топ-N стратегий с сигналами (0 = не сохранять)")
 	flag.Parse()
 
 	return Config{

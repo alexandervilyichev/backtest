@@ -59,23 +59,84 @@ type ExtremaPoint struct {
 
 // ExtremaModel — модель на основе экстремумов
 type ExtremaModel struct {
-	extremaPoints []ExtremaPoint
-	minDistance   int
-	windowSize    int
+	extremaPoints   []ExtremaPoint
+	minDistance     int
+	windowSize      int
+	minStrength     float64
+	lookbackPeriod  int
+	smoothingType   string // "ma" или "ema"
+	smoothingPeriod int
 }
 
 // NewExtremaModel создает новую модель экстремумов
-func NewExtremaModel(minDistance, windowSize int) *ExtremaModel {
+func NewExtremaModel(minDistance, windowSize int, minStrength float64, lookbackPeriod int, smoothingType string, smoothingPeriod int) *ExtremaModel {
 	return &ExtremaModel{
-		extremaPoints: make([]ExtremaPoint, 0),
-		minDistance:   minDistance,
-		windowSize:    windowSize,
+		extremaPoints:   make([]ExtremaPoint, 0),
+		minDistance:     minDistance,
+		windowSize:      windowSize,
+		minStrength:     minStrength,
+		lookbackPeriod:  lookbackPeriod,
+		smoothingType:   smoothingType,
+		smoothingPeriod: smoothingPeriod,
 	}
 }
 
-// findLocalExtrema находит локальные экстремумы в ценовых данных
-func (em *ExtremaModel) findLocalExtrema(prices []float64) {
+// smoothPrices сглаживает ценовые данные с помощью MA или EMA
+func (em *ExtremaModel) smoothPrices(prices []float64) []float64 {
+	if em.smoothingPeriod <= 0 || em.smoothingPeriod >= len(prices) {
+		return prices // Не сглаживаем если параметры некорректны
+	}
+
+	switch em.smoothingType {
+	case "ema":
+		smoothed := calculateEMA(prices, em.smoothingPeriod)
+		if smoothed == nil {
+			return prices // Возвращаем оригинал если сглаживание не удалось
+		}
+		// EMA может иметь nil значения в начале, заполняем их последним значением
+		for i, val := range smoothed {
+			if i < em.smoothingPeriod-1 {
+				smoothed[i] = prices[i]
+			}
+			if val == 0 && i >= em.smoothingPeriod-1 {
+				smoothed[i] = prices[i] // Если EMA вернул 0, берем оригинал
+			}
+		}
+		return smoothed
+	case "ma":
+		fallthrough // По умолчанию используем MA
+	default:
+		// Используем calculateSMACommonForValues для сглаживания массива float64
+		smoothed := calculateSMACommonForValues(prices, em.smoothingPeriod)
+		if smoothed == nil {
+			return prices // Возвращаем оригинал если сглаживание не удалось
+		}
+		// Заменяем нулевые значения на оригинальные цены для корректности
+		for i, val := range smoothed {
+			if val == 0 {
+				smoothed[i] = prices[i]
+			}
+		}
+		return smoothed
+	}
+}
+
+// findSignificantExtrema находит значимые глобальные экстремумы в ценовых данных
+func (em *ExtremaModel) findSignificantExtrema(prices []float64) {
 	em.extremaPoints = make([]ExtremaPoint, 0)
+
+	// Сначала сглаживаем данные
+	smoothedPrices := em.smoothPrices(prices)
+
+	// Разделяем на этапы для более точного поиска экстремумов
+	em.findLocalExtrema(smoothedPrices)
+	em.filterByStrengthAndSignificance(smoothedPrices)
+	em.filterExtremaByDistance()
+}
+
+// findLocalExtrema находит потенциальные локальные экстремумы (первый этап)
+func (em *ExtremaModel) findLocalExtrema(prices []float64) {
+	localExtrema := make([]ExtremaPoint, 0)
 
 	for i := em.windowSize; i < len(prices)-em.windowSize; i++ {
 		// Проверяем, является ли точка локальным максимумом
@@ -99,22 +160,8 @@ func (em *ExtremaModel) findLocalExtrema(prices []float64) {
 		}
 
 		if isLocalMax || isLocalMin {
-			// Вычисляем силу экстремума
-			strength := 0.0
-			if isLocalMax {
-				for j := i - em.windowSize; j <= i+em.windowSize; j++ {
-					if j != i {
-						strength += math.Abs(prices[i] - prices[j])
-					}
-				}
-			} else {
-				for j := i - em.windowSize; j <= i+em.windowSize; j++ {
-					if j != i {
-						strength += math.Abs(prices[j] - prices[i])
-					}
-				}
-			}
-			strength /= float64(em.windowSize * 2)
+			// Вычисляем силу экстремума (отклонение от средней за больший период)
+			strength := em.calculateExtremaStrength(prices, i, isLocalMax)
 
 			point := ExtremaPoint{
 				Index:    i,
@@ -122,12 +169,163 @@ func (em *ExtremaModel) findLocalExtrema(prices []float64) {
 				IsPeak:   isLocalMax,
 				Strength: strength,
 			}
-			em.extremaPoints = append(em.extremaPoints, point)
+			localExtrema = append(localExtrema, point)
 		}
 	}
 
-	// Фильтруем экстремумы по минимальному расстоянию
-	em.filterExtremaByDistance()
+	em.extremaPoints = localExtrema
+}
+
+// calculateExtremaStrength вычисляет силу экстремума на основе большего контекста
+func (em *ExtremaModel) calculateExtremaStrength(prices []float64, index int, isPeak bool) float64 {
+	// Используем больший контекст для оценки значимости
+	contextSize := em.lookbackPeriod
+	startIdx := index - contextSize
+	endIdx := index + contextSize
+
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if endIdx >= len(prices) {
+		endIdx = len(prices) - 1
+	}
+
+	// Вычисляем среднюю волатильность в контексте
+	var sumVariance float64
+	var sumPrices float64
+	count := 0
+
+	for j := startIdx; j <= endIdx; j++ {
+		if j != index {
+			sumPrices += prices[j]
+			count++
+		}
+	}
+
+	if count == 0 {
+		return 0
+	}
+
+	meanPrice := sumPrices / float64(count)
+
+	// Вычисляем дисперсию цен
+	for j := startIdx; j <= endIdx; j++ {
+		if j != index {
+			diff := prices[j] - meanPrice
+			sumVariance += diff * diff
+		}
+	}
+
+	// Стандартизированное отклонение экстремума от среднего
+	currentPrice := prices[index]
+	deviation := math.Abs(currentPrice - meanPrice)
+	variance := sumVariance / float64(count)
+
+	// Если вариация нулевая, экстремум не значимый
+	if variance < 1e-10 {
+		return 0
+	}
+
+	standardDev := math.Sqrt(variance)
+
+	// Сила экстремума как стандартизированное отклонение
+	strength := deviation / standardDev
+
+	// Дополнительный бонус за трендовые развороты
+	trendBonus := em.calculateTrendReversalStrength(prices, index, isPeak, contextSize)
+	strength += trendBonus
+
+	return strength
+}
+
+// calculateTrendReversalStrength оценивает силу разворота тренда
+func (em *ExtremaModel) calculateTrendReversalStrength(prices []float64, index int, isPeak bool, contextSize int) float64 {
+	beforeCount := contextSize / 2
+	afterCount := contextSize / 2
+
+	// Анализируем тренд перед экстремумом
+	beforeStart := index - beforeCount
+	beforeEnd := index - 1
+	afterStart := index + 1
+	afterEnd := index + afterCount
+
+	if beforeStart < 0 {
+		beforeStart = 0
+		beforeCount = index - beforeStart
+	}
+	if afterEnd >= len(prices) {
+		afterEnd = len(prices) - 1
+		afterCount = afterEnd - index
+	}
+
+	if beforeCount < 2 || afterCount < 2 {
+		return 0 // Недостаточно данных для анализа тренда
+	}
+
+	// Вычисляем средний тренд перед экстремумом
+	trendBefore := (prices[beforeEnd] - prices[beforeStart]) / float64(beforeCount)
+
+	// Вычисляем средний тренд после экстремума
+	trendAfter := (prices[afterEnd] - prices[afterStart]) / float64(afterCount)
+
+	// Оцениваем разворот (для пика ожидается разворот с роста на падение)
+	expectedReversal := false
+	if isPeak && trendBefore > 0.001 && trendAfter < -0.001 {
+		expectedReversal = true
+	} else if !isPeak && trendBefore < -0.001 && trendAfter > 0.001 {
+		expectedReversal = true
+	}
+
+	if !expectedReversal {
+		return 0 // Нет разворота тренда
+	}
+
+	// Вычисляем силу разворота (нормализованная разница направлений)
+	reversalStrength := math.Abs(trendBefore-trendAfter) / (math.Abs(trendBefore) + math.Abs(trendAfter) + 1e-10)
+
+	return reversalStrength * 0.5 // Коэффициент усиления
+}
+
+// filterByStrengthAndSignificance фильтрует экстремумы по силе и значимости
+func (em *ExtremaModel) filterByStrengthAndSignificance(prices []float64) {
+	minStrength := em.minStrength
+	if minStrength <= 0 {
+		minStrength = 1.5 // Минимальная сила экстремума (1.5 стандартных отклонений)
+	}
+
+	// Находим среднюю волатильность всего ряда для дополнительной фильтрации
+	var totalVariance float64
+	var totalMean float64
+	for _, price := range prices {
+		totalMean += price
+	}
+	totalMean /= float64(len(prices))
+
+	for _, price := range prices {
+		diff := price - totalMean
+		totalVariance += diff * diff
+	}
+	totalVariance /= float64(len(prices))
+	totalVolatility := math.Sqrt(totalVariance)
+
+	// Фильтруем по силе и относительной значимости
+	filtered := make([]ExtremaPoint, 0)
+	for _, point := range em.extremaPoints {
+		// Проверяем абсолютную силу экстремума
+		if point.Strength < minStrength {
+			continue
+		}
+
+		// Проверяем относительную значимость (экстремум должен быть значителен по сравнению с общей волатильностью)
+		relativeSignificance := point.Strength * (point.Price / (totalMean + 1e-10))
+		if relativeSignificance < totalVolatility*2.0 {
+			continue
+		}
+
+		filtered = append(filtered, point)
+	}
+
+	em.extremaPoints = filtered
 }
 
 // filterExtremaByDistance удаляет слишком близкие экстремумы
@@ -258,8 +456,8 @@ func (em *ExtremaModel) predictSignal(index int, prices []float64, confidenceThr
 // train обучает модель на исторических данных
 func (em *ExtremaModel) train(prices []float64) {
 	log.Printf("🔍 Анализ экстремумов в %d ценовых точках", len(prices))
-	em.findLocalExtrema(prices)
-	log.Printf("✅ Найдено %d значимых экстремумов", len(em.extremaPoints))
+	em.findSignificantExtrema(prices)
+	log.Printf("✅ Найдено %d значимых глобальных экстремумов", len(em.extremaPoints))
 
 	// Выводим статистику экстремумов
 	peaks := 0
@@ -271,7 +469,7 @@ func (em *ExtremaModel) train(prices []float64) {
 			valleys++
 		}
 	}
-	log.Printf("   Пики: %d, Впадины: %d", peaks, valleys)
+	log.Printf("   Глобальные пики: %d, Глобальные впадины: %d", peaks, valleys)
 }
 
 type ExtremaStrategy struct{}
@@ -305,9 +503,19 @@ func (s *ExtremaStrategy) GenerateSignals(candles []internal.Candle, params inte
 	if confidenceThreshold == 0 {
 		confidenceThreshold = 0.95 // УЛЬТРА порог уверенности для МИНИМАЛЬНОГО количества сигналов
 	}
+	smoothingType := params.SmoothingType
+	if smoothingType == "" {
+		smoothingType = "ma" // По умолчанию используем MA
+	}
+	smoothingPeriod := params.SmoothingPeriod
+	if smoothingPeriod == 0 {
+		smoothingPeriod = 10 // Период сглаживания по умолчанию
+	}
 
 	// Создаем и обучаем модель экстремумов
-	model := NewExtremaModel(minDistance, windowSize)
+	minStrength := 1.5               // Минимальная сила экстремума
+	lookbackPeriod := windowSize * 3 // Период для анализа силы экстремума
+	model := NewExtremaModel(minDistance, windowSize, minStrength, lookbackPeriod, smoothingType, smoothingPeriod)
 	model.train(prices)
 
 	// Генерируем сигналы
@@ -338,6 +546,8 @@ func (s *ExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyP
 		MinExtremaDistance:  40,  // УЛЬТРА КОНСЕРВАТИВНОЕ начальное значение
 		LookbackWindow:      15,  // УЛЬТРА КОНСЕРВАТИВНОЕ начальное значение
 		ConfidenceThreshold: 0.9, // УЛЬТРА КОНСЕРВАТИВНОЕ начальное значение
+		SmoothingType:       "ma",
+		SmoothingPeriod:     8,
 	}
 	bestProfit := -1.0
 
@@ -348,53 +558,62 @@ func (s *ExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyP
 	}
 
 	// УЛЬТРА КОНСЕРВАТИВНЫЙ grid search для МИНИМАЛЬНОГО количества экстремумов
-	for minDist := 30; minDist <= 100; minDist += 10 { // МАКСИМАЛЬНЫЙ диапазон для МАКСИМАЛЬНОЙ ФИЛЬТРАЦИИ
-		for winSize := 15; winSize <= 25; winSize += 3 { // МАКСИМАЛЬНОЕ окно для МАКСИМАЛЬНОЙ СТРОГОСТИ
-			for confThresh := 0.85; confThresh <= 0.98; confThresh += 0.03 { // МАКСИМАЛЬНЫЙ порог уверенности
-				params := internal.StrategyParams{
-					MinExtremaDistance:  minDist,
-					LookbackWindow:      winSize,
-					ConfidenceThreshold: confThresh,
-				}
+	smoothingTypes := []string{"ma", "ema"}
+	for _, smoothType := range smoothingTypes {
+		for smoothPeriod := 5; smoothPeriod <= 15; smoothPeriod += 2 {
+			for minDist := 30; minDist <= 100; minDist += 10 { // МАКСИМАЛЬНЫЙ диапазон для МАКСИМАЛЬНОЙ ФИЛЬТРАЦИИ
+				for winSize := 15; winSize <= 25; winSize += 3 { // МАКСИМАЛЬНОЕ окно для МАКСИМАЛЬНОЙ СТРОГОСТИ
+					for confThresh := 0.85; confThresh <= 0.98; confThresh += 0.03 { // МАКСИМАЛЬНЫЙ порог уверенности
+						params := internal.StrategyParams{
+							MinExtremaDistance:  minDist,
+							LookbackWindow:      winSize,
+							ConfidenceThreshold: confThresh,
+							SmoothingType:       smoothType,
+							SmoothingPeriod:     smoothPeriod,
+						}
 
-				// Create model with these parameters
-				model := NewExtremaModel(minDist, winSize)
-				model.train(prices)
+						// Create model with these parameters
+						minStrength := 1.5            // Минимальная сила экстремума
+						lookbackPeriod := winSize * 3 // Период для анализа силы экстремума
+						model := NewExtremaModel(minDist, winSize, minStrength, lookbackPeriod, smoothType, smoothPeriod)
+						model.train(prices)
 
-				// Generate signals
-				signals := make([]internal.SignalType, len(candles))
-				inPosition := false
+						// Generate signals
+						signals := make([]internal.SignalType, len(candles))
+						inPosition := false
 
-				for i := 20; i < len(candles); i++ {
-					signal := model.predictSignal(i, prices, confThresh)
+						for i := 20; i < len(candles); i++ {
+							signal := model.predictSignal(i, prices, confThresh)
 
-					if !inPosition && signal == internal.BUY {
-						signals[i] = internal.BUY
-						inPosition = true
-					} else if inPosition && signal == internal.SELL {
-						signals[i] = internal.SELL
-						inPosition = false
-					} else {
-						signals[i] = internal.HOLD
+							if !inPosition && signal == internal.BUY {
+								signals[i] = internal.BUY
+								inPosition = true
+							} else if inPosition && signal == internal.SELL {
+								signals[i] = internal.SELL
+								inPosition = false
+							} else {
+								signals[i] = internal.HOLD
+							}
+						}
+
+						// Backtest
+						result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
+						if result.TotalProfit > bestProfit {
+							bestProfit = result.TotalProfit
+							bestParams = params
+						}
 					}
-				}
-
-				// Backtest
-				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
-				if result.TotalProfit > bestProfit {
-					bestProfit = result.TotalProfit
-					bestParams = params
 				}
 			}
 		}
 	}
 
-	log.Printf("Лучшие параметры extrema: minDist=%d, winSize=%d, confThresh=%.1f, profit=%.2f",
-		bestParams.MinExtremaDistance, bestParams.LookbackWindow, bestParams.ConfidenceThreshold, bestProfit)
+	log.Printf("Лучшие параметры extrema: smoothType=%s, smoothPeriod=%d, minDist=%d, winSize=%d, confThresh=%.1f, profit=%.2f",
+		bestParams.SmoothingType, bestParams.SmoothingPeriod, bestParams.MinExtremaDistance, bestParams.LookbackWindow, bestParams.ConfidenceThreshold, bestProfit)
 
 	return bestParams
 }
 
 func init() {
-	// internal.RegisterStrategy("extrema_strategy", &ExtremaStrategy{})
+	internal.RegisterStrategy("extrema_strategy", &ExtremaStrategy{})
 }
