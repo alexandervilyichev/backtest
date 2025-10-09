@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"bt/internal"
+
+	"bt/internal/app/backtester"
 	_ "bt/strategies" // Импортируем для регистрации стратегий
 )
 
@@ -49,8 +51,8 @@ func main() {
 
 	// Инициализация компонентов
 	runner := createRunner(config)
-	printer := NewConsolePrinter()
-	saver := NewFileSaver()
+	printer := backtester.NewConsolePrinter()
+	saver := backtester.NewFileSaver()
 
 	// Запуск стратегий
 	results, err := runStrategies(config, runner, candles)
@@ -76,14 +78,14 @@ func main() {
 }
 
 // parseFlags — парсит командную строку и возвращает конфигурацию
-func parseFlags() Config {
+func parseFlags() backtester.Config {
 	filename := flag.String("file", "C:/Users/alexa/OneDrive/Документы/Projects/backtest/candles.json", "Путь к JSON-файлу со свечами")
 	strategyName := flag.String("strategy", "all", "Стратегия: all (все стратегии) или "+strings.Join(internal.GetStrategyNames(), ", "))
 	debug := flag.Bool("debug", false, "Включить детальное логирование")
 	saveSignals := flag.Int("save_signals", 0, "Сохранить топ-N стратегий с сигналами (0 = не сохранять)")
 	flag.Parse()
 
-	return Config{
+	return backtester.Config{
 		Filename:    *filename,
 		Strategy:    *strategyName,
 		Debug:       *debug,
@@ -92,15 +94,15 @@ func parseFlags() Config {
 }
 
 // createRunner — создает подходящий runner в зависимости от стратегии
-func createRunner(config Config) StrategyRunner {
+func createRunner(config backtester.Config) backtester.StrategyRunner {
 	if config.Strategy == "all" {
-		return NewParallelStrategyRunner(config.Debug)
+		return backtester.NewParallelStrategyRunner(config.Debug)
 	}
-	return NewSingleStrategyRunner(config.Debug)
+	return backtester.NewSingleStrategyRunner(config.Debug)
 }
 
 // runStrategies — запускает стратегии с помощью runner
-func runStrategies(config Config, runner StrategyRunner, candles []internal.Candle) ([]BenchmarkResult, error) {
+func runStrategies(config backtester.Config, runner backtester.StrategyRunner, candles []internal.Candle) ([]backtester.BenchmarkResult, error) {
 	if config.Strategy == "all" {
 		return runner.RunAllStrategies(candles)
 	}
@@ -116,7 +118,7 @@ func runStrategies(config Config, runner StrategyRunner, candles []internal.Cand
 	bnhSignals := bnhStrategy.GenerateSignals(candles, internal.StrategyParams{})
 	bnhResult := internal.Backtest(candles, bnhSignals, 0.01)
 
-	results := []BenchmarkResult{
+	results := []backtester.BenchmarkResult{
 		*mainResult,
 		{
 			Name:           bnhStrategy.Name(),
