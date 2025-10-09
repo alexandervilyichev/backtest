@@ -54,7 +54,6 @@ config.local.*
 
 # Generated files
 backtester.exe
-backtester
 
 # HTML visualization cache
 chart_visualization_cache/
