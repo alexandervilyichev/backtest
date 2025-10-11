@@ -43,7 +43,6 @@ type StrategyParams struct {
 	UseDivergence             bool
 	MomentumPeriod            int
 	BreakoutThreshold         float64
-	VolatilityFilter          float64
 	MinWaveLength             int
 	MaxWaveLength             int
 	FibonacciThreshold        float64
@@ -52,6 +51,14 @@ type StrategyParams struct {
 	BollingerBandsMultiplier  float64
 	SmoothingType             string
 	SmoothingPeriod           int
+	QstickPeriod              int
+	QstickBuyThreshold        float64
+	QstickSellThreshold       float64
+	StopLossPercent           float64
+	TakeProfitPercent         float64
+	VolatilityFilter          float64
+	SuperTrendPeriod          int
+	SuperTrendMultiplier      float64
 }
 
 type Strategy interface {
