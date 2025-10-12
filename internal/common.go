@@ -1,16 +1,15 @@
 // strategies/common.go
 // Общие функции для всех стратегий
 
-package strategies
+package internal
 
 import (
-	"bt/internal"
 	"math"
 	"strconv"
 )
 
 // calculateSMACommon вычисляет простую скользящую среднюю
-func calculateSMACommon(candles []internal.Candle, period int) []float64 {
+func CalculateSMACommon(candles []Candle, period int) []float64 {
 	if len(candles) < period {
 		return nil
 	}
@@ -32,7 +31,7 @@ func calculateSMACommon(candles []internal.Candle, period int) []float64 {
 }
 
 // calculateRSICommon вычисляет RSI
-func calculateRSICommon(candles []internal.Candle, period int) []float64 {
+func CalculateRSICommon(candles []Candle, period int) []float64 {
 	if len(candles) < period+1 {
 		return nil
 	}
@@ -103,7 +102,7 @@ func avgCommon(xs []float64) float64 {
 }
 
 // calculateRollingMin вычисляет скользящий минимум
-func calculateRollingMin(candles []internal.Candle, period int) []float64 {
+func CalculateRollingMin(candles []Candle, period int) []float64 {
 	if len(candles) < period {
 		return nil
 	}
@@ -127,7 +126,7 @@ func calculateRollingMin(candles []internal.Candle, period int) []float64 {
 }
 
 // calculateRollingMax вычисляет скользящий максимум
-func calculateRollingMax(candles []internal.Candle, period int) []float64 {
+func CalculateRollingMax(candles []Candle, period int) []float64 {
 	if len(candles) < period {
 		return nil
 	}
@@ -151,7 +150,7 @@ func calculateRollingMax(candles []internal.Candle, period int) []float64 {
 }
 
 // calculateStochastic вычисляет стохастический осциллятор (%K и %D)
-func calculateStochastic(candles []internal.Candle, kPeriod, dPeriod int) ([]float64, []float64) {
+func CalculateStochastic(candles []Candle, kPeriod, dPeriod int) ([]float64, []float64) {
 	if len(candles) < kPeriod {
 		return nil, nil
 	}
@@ -183,13 +182,13 @@ func calculateStochastic(candles []internal.Candle, kPeriod, dPeriod int) ([]flo
 	}
 
 	// Вычисляем %D как SMA от %K
-	dValues := calculateSMACommonForValues(kValues, dPeriod)
+	dValues := CalculateSMACommonForValues(kValues, dPeriod)
 
 	return kValues, dValues
 }
 
 // calculateSMACommonForValues вычисляет SMA для массива значений
-func calculateSMACommonForValues(values []float64, period int) []float64 {
+func CalculateSMACommonForValues(values []float64, period int) []float64 {
 	if len(values) < period {
 		return nil
 	}
@@ -211,7 +210,7 @@ func calculateSMACommonForValues(values []float64, period int) []float64 {
 }
 
 // calculateEMA вычисляет экспоненциальную скользящую среднюю
-func calculateEMA(values []float64, period int) []float64 {
+func CalculateEMAForFloats(values []float64, period int) []float64 {
 	if len(values) < period {
 		return nil
 	}
@@ -235,7 +234,7 @@ func calculateEMA(values []float64, period int) []float64 {
 }
 
 // calculateMACD вычисляет MACD (MACD линия, сигнальная линия, гистограмма)
-func calculateMACD(candles []internal.Candle, fastPeriod, slowPeriod, signalPeriod int) ([]float64, []float64, []float64) {
+func CalculateMACDWithSignal(candles []Candle, fastPeriod, slowPeriod, signalPeriod int) ([]float64, []float64, []float64) {
 	if len(candles) < slowPeriod {
 		return nil, nil, nil
 	}
@@ -247,8 +246,8 @@ func calculateMACD(candles []internal.Candle, fastPeriod, slowPeriod, signalPeri
 	}
 
 	// Вычисляем быструю и медленную EMA
-	fastEMA := calculateEMA(prices, fastPeriod)
-	slowEMA := calculateEMA(prices, slowPeriod)
+	fastEMA := CalculateEMAForFloats(prices, fastPeriod)
+	slowEMA := CalculateEMAForFloats(prices, slowPeriod)
 	if fastEMA == nil || slowEMA == nil {
 		return nil, nil, nil
 	}
@@ -264,7 +263,7 @@ func calculateMACD(candles []internal.Candle, fastPeriod, slowPeriod, signalPeri
 	}
 
 	// Вычисляем сигнальную линию (EMA от MACD)
-	signalLine := calculateEMA(macdLine, signalPeriod)
+	signalLine := CalculateEMAForFloats(macdLine, signalPeriod)
 	if signalLine == nil {
 		return nil, nil, nil
 	}
@@ -279,13 +278,13 @@ func calculateMACD(candles []internal.Candle, fastPeriod, slowPeriod, signalPeri
 }
 
 // calculateMAChannel вычисляет коридор скользящих средних (верхний и нижний каналы)
-func calculateMAChannel(candles []internal.Candle, fastPeriod, slowPeriod int, multiplier float64) ([]float64, []float64) {
+func CalculateMAChannel(candles []Candle, fastPeriod, slowPeriod int, multiplier float64) ([]float64, []float64) {
 	if len(candles) < slowPeriod {
 		return nil, nil
 	}
 
-	fastMA := calculateSMACommon(candles, fastPeriod)
-	slowMA := calculateSMACommon(candles, slowPeriod)
+	fastMA := CalculateSMACommon(candles, fastPeriod)
+	slowMA := CalculateSMACommon(candles, slowPeriod)
 	if fastMA == nil || slowMA == nil {
 		return nil, nil
 	}
@@ -336,7 +335,7 @@ func calculateCorrelation(x, y []float64) float64 {
 }
 
 // calculateRollingCorrelation вычисляет скользящую корреляцию между двумя временными рядами
-func calculateRollingCorrelation(x, y []float64, period int) []float64 {
+func CalculateRollingCorrelation(x, y []float64, period int) []float64 {
 	if len(x) != len(y) || len(x) < period {
 		return nil
 	}
@@ -380,35 +379,35 @@ func quantizePrice(price float64, levels int, priceStep float64) float64 {
 }
 
 // quantizeCandles квантизует все цены в массиве свечей
-func quantizeCandles(candles []internal.Candle, levels int, priceStep float64) []internal.Candle {
+func quantizeCandles(candles []Candle, levels int, priceStep float64) []Candle {
 	if !shouldQuantize(levels, priceStep) {
 		return candles
 	}
 
-	quantized := make([]internal.Candle, len(candles))
+	quantized := make([]Candle, len(candles))
 	copy(quantized, candles)
 
 	for i := range quantized {
 		quantizedPrice := quantizePrice(candles[i].Open.ToFloat64(), levels, priceStep)
-		quantized[i].Open = internal.Price{
+		quantized[i].Open = Price{
 			Units: strconv.FormatInt(int64(quantizedPrice), 10),
 			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
 		}
 
 		quantizedPrice = quantizePrice(candles[i].High.ToFloat64(), levels, priceStep)
-		quantized[i].High = internal.Price{
+		quantized[i].High = Price{
 			Units: strconv.FormatInt(int64(quantizedPrice), 10),
 			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
 		}
 
 		quantizedPrice = quantizePrice(candles[i].Low.ToFloat64(), levels, priceStep)
-		quantized[i].Low = internal.Price{
+		quantized[i].Low = Price{
 			Units: strconv.FormatInt(int64(quantizedPrice), 10),
 			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
 		}
 
 		quantizedPrice = quantizePrice(candles[i].Close.ToFloat64(), levels, priceStep)
-		quantized[i].Close = internal.Price{
+		quantized[i].Close = Price{
 			Units: strconv.FormatInt(int64(quantizedPrice), 10),
 			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
 		}
@@ -423,7 +422,7 @@ func shouldQuantize(levels int, priceStep float64) bool {
 }
 
 // applyQuantizationToCandles применяет квантизацию к свечам если включена
-func ApplyQuantizationToCandles(candles []internal.Candle, params internal.StrategyParams) []internal.Candle {
+func ApplyQuantizationToCandles(candles []Candle, params StrategyParams) []Candle {
 	if !params.QuantizationEnabled {
 		return candles
 	}

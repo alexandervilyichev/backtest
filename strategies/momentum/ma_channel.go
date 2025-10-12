@@ -38,7 +38,7 @@
 // - Средне- и долгосрочная торговля
 // - В сочетании с фильтрами объема или волатильности
 
-package strategies
+package momentum
 
 import (
 	"bt/internal"
@@ -66,7 +66,7 @@ func (s *MAChannelStrategy) GenerateSignals(candles []internal.Candle, params in
 		multiplier = 1.0 // default
 	}
 
-	upperChannel, lowerChannel := calculateMAChannel(candles, fastPeriod, slowPeriod, multiplier)
+	upperChannel, lowerChannel := internal.CalculateMAChannel(candles, fastPeriod, slowPeriod, multiplier)
 	if upperChannel == nil || lowerChannel == nil {
 		return make([]internal.SignalType, len(candles))
 	}

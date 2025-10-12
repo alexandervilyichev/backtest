@@ -323,12 +323,12 @@ func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64
 }
 
 // abs возвращает абсолютное значение
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
+// func abs(x int) int {
+// 	if x < 0 {
+// 		return -x
+// 	}
+// 	return x
+// }
 
 type ElliottWaveStrategy struct{}
 
@@ -391,17 +391,18 @@ func (s *ElliottWaveStrategy) GenerateSignals(candles []internal.Candle, params 
 
 		// Логика входа в позицию
 		if !inPosition {
-			if signal == internal.BUY {
+			switch signal {
+			case internal.BUY:
 				signals[i] = internal.BUY
 				inPosition = true
 				positionEntryPrice = currentPrice
 				// log.Printf("   BUY сигнал на свече %d: цена=%.2f", i, currentPrice)
-			} else if signal == internal.SELL {
+			case internal.SELL:
 				signals[i] = internal.SELL
 				inPosition = true
 				positionEntryPrice = currentPrice
 				// log.Printf("   SELL сигнал на свече %d: цена=%.2f", i, currentPrice)
-			} else {
+			default:
 				signals[i] = internal.HOLD
 			}
 		} else {

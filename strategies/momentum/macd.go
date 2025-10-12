@@ -36,7 +36,7 @@
 // - В сочетании с другими индикаторами подтверждения
 // - На активах с хорошей трендовой характеристикой
 
-package strategies
+package momentum
 
 import (
 	"bt/internal"
@@ -64,7 +64,7 @@ func (s *MACDStrategy) GenerateSignals(candles []internal.Candle, params interna
 		signalPeriod = 9 // default
 	}
 
-	macdLine, signalLine, _ := calculateMACD(candles, fastPeriod, slowPeriod, signalPeriod)
+	macdLine, signalLine, _ := internal.CalculateMACDWithSignal(candles, fastPeriod, slowPeriod, signalPeriod)
 	if macdLine == nil || signalLine == nil {
 		return make([]internal.SignalType, len(candles))
 	}

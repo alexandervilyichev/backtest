@@ -35,7 +35,7 @@
 // - В сочетании с фильтрами объема или волатильности
 // - На активах с хорошей трендовой характеристикой
 
-package strategies
+package trend
 
 import "bt/internal"
 
@@ -47,7 +47,7 @@ func (s *MovingAverageCrossoverStrategy) Name() string {
 
 func (s *MovingAverageCrossoverStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
 	// Применяем квантизацию если включена
-	quantizedCandles := ApplyQuantizationToCandles(candles, params)
+	quantizedCandles := internal.ApplyQuantizationToCandles(candles, params)
 
 	// Используем параметры для быстрой и медленной скользящих средних
 	// Временно используем существующие поля StrategyParams, пока не добавлены специальные
@@ -63,8 +63,8 @@ func (s *MovingAverageCrossoverStrategy) GenerateSignals(candles []internal.Cand
 	}
 
 	// Рассчитываем скользящие средние
-	fastMA := calculateSMACommon(quantizedCandles, fastPeriod)
-	slowMA := calculateSMACommon(quantizedCandles, slowPeriod)
+	fastMA := internal.CalculateSMACommon(quantizedCandles, fastPeriod)
+	slowMA := internal.CalculateSMACommon(quantizedCandles, slowPeriod)
 
 	if fastMA == nil || slowMA == nil {
 		return make([]internal.SignalType, len(candles))

@@ -36,7 +36,7 @@
 // - Волатильные активы с четкими уровнями поддержки/сопротивления
 // - В сочетании с объемом или momentum индикаторами
 
-package strategies
+package lines
 
 import (
 	"bt/internal"
@@ -55,7 +55,7 @@ func (s *SupportLineStrategy) GenerateSignals(candles []internal.Candle, params 
 		lookback = 20 // default
 	}
 
-	supportLevels := calculateRollingMin(candles, lookback)
+	supportLevels := internal.CalculateRollingMin(candles, lookback)
 	if supportLevels == nil {
 		return make([]internal.SignalType, len(candles))
 	}

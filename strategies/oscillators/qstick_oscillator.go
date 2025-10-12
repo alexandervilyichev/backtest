@@ -47,7 +47,7 @@
 // - Комбинация с объемными индикаторами
 // - На активах с хорошей ликвидностью и волатильностью
 
-package strategies
+package oscillators
 
 import (
 	"bt/internal"

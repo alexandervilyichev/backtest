@@ -38,7 +38,7 @@
 // - Комбинация с трендовыми индикаторами
 // - На активах с хорошей волатильностью
 
-package strategies
+package oscillators
 
 import (
 	"bt/internal"

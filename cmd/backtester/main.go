@@ -13,7 +13,20 @@ import (
 	"bt/internal"
 
 	"bt/internal/app/backtester"
-	_ "bt/strategies" // Импортируем для регистрации стратегий
+
+	_ "bt/strategies/extrema"
+	_ "bt/strategies/lines"
+	_ "bt/strategies/momentum"
+	_ "bt/strategies/moving_averages"
+	_ "bt/strategies/oscillators"
+	_ "bt/strategies/rebalance"
+	_ "bt/strategies/sell"
+	_ "bt/strategies/simple"
+	_ "bt/strategies/statistical"
+	_ "bt/strategies/trend"
+	_ "bt/strategies/volatility"
+	_ "bt/strategies/volume"
+	_ "bt/strategies/wave"
 )
 
 func LoadCandlesFromFile(filename string) []internal.Candle {

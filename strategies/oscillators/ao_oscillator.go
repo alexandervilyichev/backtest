@@ -30,7 +30,7 @@
 //   Преимущество AO: он чувствителен к изменениям объема и силы движения,
 //   не реагирует на шум, как RSI или MACD, и идеален для торговли на таймфреймах M15-H1.
 
-package strategies
+package oscillators
 
 import (
 	"bt/internal"

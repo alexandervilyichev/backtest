@@ -35,7 +35,7 @@
 // - В комбинации с другими индикаторами
 // - Для фильтрации сигналов других стратегий
 
-package strategies
+package moving_averages
 
 import (
 	"bt/internal"
@@ -75,15 +75,15 @@ func (s *MaEmaCorrelationStrategy) GenerateSignals(candles []internal.Candle, pa
 	}
 
 	// Рассчитываем MA и EMA
-	ma := calculateSMACommonForValues(prices, maPeriod)
-	ema := calculateEMA(prices, emaPeriod)
+	ma := internal.CalculateSMACommonForValues(prices, maPeriod)
+	ema := internal.CalculateEMAForFloats(prices, emaPeriod)
 
 	if ma == nil || ema == nil {
 		return make([]internal.SignalType, len(candles))
 	}
 
 	// Рассчитываем скользящую корреляцию между MA и EMA
-	correlations := calculateRollingCorrelation(ma, ema, lookback)
+	correlations := internal.CalculateRollingCorrelation(ma, ema, lookback)
 	if correlations == nil {
 		return make([]internal.SignalType, len(candles))
 	}

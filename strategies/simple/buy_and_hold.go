@@ -1,5 +1,5 @@
 // strategies/buy_and_hold.go
-package strategies
+package simple
 
 import "bt/internal"
 

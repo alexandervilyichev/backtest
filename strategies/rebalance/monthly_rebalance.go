@@ -1,4 +1,4 @@
-package strategies
+package rebalance
 
 import (
 	"bt/internal"

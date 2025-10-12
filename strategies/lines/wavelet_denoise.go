@@ -1,4 +1,4 @@
-package strategies
+package lines
 
 import "bt/internal"
 

@@ -35,7 +35,7 @@
 // - В сочетании с трендовыми фильтрами
 // - На волатильных активах
 
-package strategies
+package oscillators
 
 import (
 	"bt/internal"
@@ -55,7 +55,7 @@ func (s *RsiOscillatorStrategy) GenerateSignals(candles []internal.Candle, param
 		period = 14 // default
 	}
 
-	rsiValues := calculateRSICommon(candles, period)
+	rsiValues := internal.CalculateRSICommon(candles, period)
 	if rsiValues == nil {
 		return make([]internal.SignalType, len(candles))
 	}

@@ -36,7 +36,7 @@
 // - Периоды высокой рыночной активности
 // - В качестве дополнения к долгосрочным стратегиям
 
-package strategies
+package volatility
 
 import (
 	"bt/internal"

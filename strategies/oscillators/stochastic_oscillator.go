@@ -36,7 +36,7 @@
 // - В сочетании с трендовыми индикаторами
 // - На активах с четкими циклами
 
-package strategies
+package oscillators
 
 import (
 	"bt/internal"
@@ -59,7 +59,7 @@ func (s *StochasticOscillatorStrategy) GenerateSignals(candles []internal.Candle
 		dPeriod = 3 // default
 	}
 
-	kValues, dValues := calculateStochastic(candles, kPeriod, dPeriod)
+	kValues, dValues := internal.CalculateStochastic(candles, kPeriod, dPeriod)
 	if kValues == nil || dValues == nil {
 		return make([]internal.SignalType, len(candles))
 	}

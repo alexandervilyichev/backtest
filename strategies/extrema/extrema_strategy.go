@@ -40,7 +40,7 @@
 // - Рынки с выраженной волатильностью
 // - Когда важна точность входа в позицию
 
-package strategies
+package extrema
 
 import (
 	"bt/internal"
@@ -89,7 +89,7 @@ func (em *ExtremaModel) smoothPrices(prices []float64) []float64 {
 
 	switch em.smoothingType {
 	case "ema":
-		smoothed := calculateEMA(prices, em.smoothingPeriod)
+		smoothed := internal.CalculateEMAForFloats(prices, em.smoothingPeriod)
 		if smoothed == nil {
 			return prices // Возвращаем оригинал если сглаживание не удалось
 		}
@@ -107,7 +107,7 @@ func (em *ExtremaModel) smoothPrices(prices []float64) []float64 {
 		fallthrough // По умолчанию используем MA
 	default:
 		// Используем calculateSMACommonForValues для сглаживания массива float64
-		smoothed := calculateSMACommonForValues(prices, em.smoothingPeriod)
+		smoothed := internal.CalculateSMACommonForValues(prices, em.smoothingPeriod)
 		if smoothed == nil {
 			return prices // Возвращаем оригинал если сглаживание не удалось
 		}
@@ -380,7 +380,7 @@ func (em *ExtremaModel) findNearestExtrema(index int) (peak *ExtremaPoint, valle
 }
 
 // predictSignal предсказывает сигнал на основе расстояния до экстремумов
-func (em *ExtremaModel) predictSignal(index int, prices []float64, confidenceThreshold float64) internal.SignalType {
+func (em *ExtremaModel) predictSignal(index int, prices []float64) internal.SignalType {
 	peak, valley := em.findNearestExtrema(index)
 
 	if peak == nil && valley == nil {
@@ -523,7 +523,7 @@ func (s *ExtremaStrategy) GenerateSignals(candles []internal.Candle, params inte
 	inPosition := false
 
 	for i := 20; i < len(candles); i++ { // начинаем после достаточного количества данных
-		signal := model.predictSignal(i, prices, confidenceThreshold)
+		signal := model.predictSignal(i, prices)
 
 		// Применяем логику позиционирования
 		if !inPosition && signal == internal.BUY {
@@ -583,7 +583,7 @@ func (s *ExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyP
 						inPosition := false
 
 						for i := 20; i < len(candles); i++ {
-							signal := model.predictSignal(i, prices, confThresh)
+							signal := model.predictSignal(i, prices)
 
 							if !inPosition && signal == internal.BUY {
 								signals[i] = internal.BUY

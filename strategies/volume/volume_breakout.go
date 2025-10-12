@@ -36,7 +36,7 @@
 // - На активах с понятной динамикой объема
 // - Среднесрочная торговля с подтверждением тренда
 
-package strategies
+package volume
 
 import (
 	"bt/internal"

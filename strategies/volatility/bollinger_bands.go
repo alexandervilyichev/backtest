@@ -36,7 +36,7 @@
 // - На активах со средней волатильностью
 // - Для поиска точек разворота после экстремальных движений
 
-package strategies
+package volatility
 
 import (
 	"bt/internal"

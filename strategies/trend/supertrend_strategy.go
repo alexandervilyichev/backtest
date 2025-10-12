@@ -38,7 +38,7 @@
 // - Активы с четко выраженными трендами
 // - В комбинации с другими индикаторами для фильтрации
 
-package strategies
+package trend
 
 import (
 	"bt/internal"

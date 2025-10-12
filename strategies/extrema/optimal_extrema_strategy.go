@@ -19,7 +19,7 @@
 // Параметры:
 // - Нет настраиваемых параметров (алгоритм детерминирован)
 
-package strategies
+package extrema
 
 import (
 	"bt/internal"
@@ -248,9 +248,10 @@ func (s *OptimalExtremaStrategy) GenerateSignals(candles []internal.Candle, para
 	buyCount := 0
 	sellCount := 0
 	for _, signal := range signals {
-		if signal == internal.BUY {
+		switch signal {
+		case internal.BUY:
 			buyCount++
-		} else if signal == internal.SELL {
+		case internal.SELL:
 			sellCount++
 		}
 	}

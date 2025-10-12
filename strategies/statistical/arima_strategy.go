@@ -132,7 +132,7 @@ func (model *ARIMAModelImproved) trainARModel(data []float64) {
 		}
 	}
 
-	// Решаем нормальные уравнения для линейной регрессии
+	// Решаем нормальные ур...rn false
 	coeffs := model.solveNormalEquations(X, y)
 	if len(coeffs) > 0 {
 		model.constant = coeffs[0]
@@ -364,7 +364,7 @@ func (s *ARIMAStrategyImproved) GenerateSignals(candles []internal.Candle, param
 		adaptiveThreshold := baseThreshold + volatility*0.5
 
 		// Получаем сигнал с учетом тренда и волатильности
-		signal := s.generateEnhancedSignal(model, currentPrice, forecast, adaptiveThreshold, prices, i)
+		signal := s.generateEnhancedSignal(currentPrice, forecast, adaptiveThreshold, prices, i)
 
 		// Улучшенная логика позиционирования с фильтром тренда
 		trendStrength := s.calculateTrendStrength(prices[max(0, i-20):i])
@@ -477,7 +477,7 @@ func (s *ARIMAStrategyImproved) calculateTrendStrength(prices []float64) float64
 }
 
 // generateEnhancedSignal генерирует улучшенный сигнал с учетом рыночных условий
-func (s *ARIMAStrategyImproved) generateEnhancedSignal(model *ARIMAModelImproved, currentPrice, forecastPrice, threshold float64, prices []float64, currentIndex int) internal.SignalType {
+func (s *ARIMAStrategyImproved) generateEnhancedSignal(currentPrice, forecastPrice, threshold float64, prices []float64, currentIndex int) internal.SignalType {
 	// Базовый сигнал на основе прогноза
 	expectedChange := (forecastPrice - currentPrice) / currentPrice
 
@@ -503,5 +503,5 @@ func (s *ARIMAStrategyImproved) Optimize(candles []internal.Candle) internal.Str
 }
 
 func init() {
-	// internal.RegisterStrategy("arima_strategy", &ARIMAStrategyImproved{})
+	internal.RegisterStrategy("arima_strategy", &ARIMAStrategyImproved{})
 }

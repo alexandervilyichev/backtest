@@ -34,7 +34,7 @@
 // - В сочетании с другими индикаторами
 // - Среднесрочная торговля
 
-package strategies
+package volume
 
 import (
 	"bt/internal"
@@ -147,7 +147,7 @@ func (s *OBVStrategy) GenerateSignals(candles []internal.Candle, params internal
 
 		// Рассчитываем OBV для текущего момента
 		obv := calculateOBV(candles[:i+1])
-		if obv == nil || len(obv) < 2 {
+		if len(obv) < 2 {
 			signals[i] = internal.HOLD
 			continue
 		}
