@@ -17,9 +17,9 @@ func Backtest(candles []Candle, signals []SignalType, slippage float64) Backtest
 		log.Fatal("Mismatch between candles and signals length")
 	}
 
-	cash := 10000.0
+	cashCurrent, initCash := 10000.0, 10000.0
 	holdings := 0.0
-	portfolioValues := []float64{cash}
+	portfolioValues := []float64{cashCurrent}
 	tradeCount := 0
 
 	for i, signal := range signals {
@@ -27,30 +27,30 @@ func Backtest(candles []Candle, signals []SignalType, slippage float64) Backtest
 
 		switch signal {
 		case BUY:
-			if holdings == 0 && cash > 0 {
+			if holdings == 0 && cashCurrent > 0 {
 				effectivePrice := price + slippage
-				holdings = cash / effectivePrice
-				cash = 0
+				holdings = cashCurrent / effectivePrice
+				cashCurrent = 0
 				//	fmt.Printf("📈 BUY at %.2f (effective %.2f, candle %d, %s)\n", price, effectivePrice, i, candles[i].Time)
 				tradeCount++
 			}
 		case SELL:
 			if holdings > 0 {
 				effectivePrice := price - slippage
-				cash = holdings * effectivePrice
+				cashCurrent = holdings * effectivePrice
 				holdings = 0
 				//	fmt.Printf("📉 SELL at %.2f (effective %.2f, candle %d, %s)\n", price, effectivePrice, i, candles[i].Time)
 				tradeCount++
 			}
 		}
 
-		portfolioValue := cash + holdings*price
+		portfolioValue := cashCurrent + holdings*price
 		portfolioValues = append(portfolioValues, portfolioValue)
 	}
 
 	finalPrice := candles[len(candles)-1].Close.ToFloat64()
-	finalPortfolio := cash + holdings*finalPrice
-	profit := (finalPortfolio - 10000.0) / 10000.0
+	finalPortfolio := cashCurrent + holdings*finalPrice
+	profit := (finalPortfolio - initCash) / initCash
 
 	return BacktestResult{
 		TotalProfit:     profit,

@@ -169,9 +169,9 @@ func (s *CciOscillatorStrategy) Optimize(candles []internal.Candle) internal.Str
 	generator := s.GenerateSignals
 
 	// Более широкий и детальный grid search
-	for period := 5; period <= 20; period += 1 {
-		for buy := -250.0; buy <= -150.0; buy += 10 {
-			for sell := 150.0; sell <= 250.0; sell += 10 {
+	for period := 5; period <= 10; period += 1 {
+		for buy := -200.0; buy <= -150.0; buy += 5 {
+			for sell := 150.0; sell <= 200.0; sell += 5 {
 				params := internal.StrategyParams{
 					CciPeriod:    period,
 					CciBuyLevel:  buy,

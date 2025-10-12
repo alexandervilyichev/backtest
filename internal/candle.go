@@ -2,22 +2,37 @@
 package internal
 
 import (
+	"encoding/json"
 	"log"
 	"strconv"
 	"time"
 )
 
-type Price struct {
-	Units string `json:"units"`
-	Nano  int32  `json:"nano"`
+type Price float64
+
+// UnmarshalJSON реализует пользовательский разбор JSON для Price.
+// Преобразует объект {"units": "", "nano": 0} в float64 на этапе загрузки.
+func (p *Price) UnmarshalJSON(data []byte) error {
+	var temp struct {
+		Units string `json:"units"`
+		Nano  int32  `json:"nano"`
+	}
+	err := json.Unmarshal(data, &temp)
+	if err != nil {
+		return err
+	}
+	units, err := strconv.ParseInt(temp.Units, 10, 64)
+	if err != nil {
+		return err
+	}
+	*p = Price(float64(units) + float64(temp.Nano)/1_000_000_000.0)
+	return nil
 }
 
+// ToFloat64 возвращает значение Price как float64.
+// Теперь это простое приведение типов, поскольку преобразование происходит на этапе загрузки JSON.
 func (p Price) ToFloat64() float64 {
-	units, err := strconv.ParseInt(p.Units, 10, 64)
-	if err != nil {
-		log.Fatal("Invalid units value:", p.Units, err)
-	}
-	return float64(units) + float64(p.Nano)/1_000_000_000.0
+	return float64(p)
 }
 
 func (c Candle) VolumeFloat64() float64 {
@@ -29,14 +44,15 @@ func (c Candle) VolumeFloat64() float64 {
 }
 
 type Candle struct {
-	Open         Price  `json:"open"`
-	High         Price  `json:"high"`
-	Low          Price  `json:"low"`
-	Close        Price  `json:"close"`
-	Volume       string `json:"volume"`
-	Time         string `json:"time"`
-	IsComplete   bool   `json:"isComplete"`
-	CandleSource string `json:"candleSource"`
+	Open         Price     `json:"open"`
+	High         Price     `json:"high"`
+	Low          Price     `json:"low"`
+	Close        Price     `json:"close"`
+	Volume       string    `json:"volume"`
+	Time         string    `json:"time"`
+	IsComplete   bool      `json:"isComplete"`
+	CandleSource string    `json:"candleSource"`
+	ParsedTime   time.Time `json:"-"` // precomputed time for ToTime()
 }
 
 // GetCandlesResponse — ответ от API
@@ -55,11 +71,9 @@ type RequestBody struct {
 }
 
 func (c Candle) ToTime() time.Time {
-	t, err := time.Parse(time.RFC3339, c.Time)
-	if err != nil {
-		log.Fatal("Invalid time format:", c.Time)
-	}
-	return t
+	// Возвращаем precomputed time.Time для оптимизации
+	// Преобразование выполняется один раз на этапе загрузки JSON
+	return c.ParsedTime
 }
 
 type SignalType int

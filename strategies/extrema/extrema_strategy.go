@@ -60,6 +60,8 @@ type ExtremaPoint struct {
 // ExtremaModel — модель на основе экстремумов
 type ExtremaModel struct {
 	extremaPoints   []ExtremaPoint
+	peaks           []ExtremaPoint
+	valleys         []ExtremaPoint
 	minDistance     int
 	windowSize      int
 	minStrength     float64
@@ -359,23 +361,45 @@ func (em *ExtremaModel) filterExtremaByDistance() {
 	em.extremaPoints = filtered
 }
 
-// findNearestExtrema находит ближайшие экстремумы к заданному индексу
-func (em *ExtremaModel) findNearestExtrema(index int) (peak *ExtremaPoint, valley *ExtremaPoint) {
-	minPeakDist := math.MaxInt32
-	minValleyDist := math.MaxInt32
+// findClosestExtrema находит ближайший экстремум в отсортированном слайсе с помощью бинарного поиска
+func (em *ExtremaModel) findClosestExtrema(slice []ExtremaPoint, index int) *ExtremaPoint {
+	if len(slice) == 0 {
+		return nil
+	}
 
-	for _, point := range em.extremaPoints {
-		dist := int(math.Abs(float64(point.Index - index)))
-
-		if point.IsPeak && dist < minPeakDist {
-			minPeakDist = dist
-			peak = &point
-		} else if !point.IsPeak && dist < minValleyDist {
-			minValleyDist = dist
-			valley = &point
+	// Бинарный поиск точки вставки
+	left, right := 0, len(slice)-1
+	for left <= right {
+		mid := left + (right-left)/2
+		if slice[mid].Index < index {
+			left = mid + 1
+		} else {
+			right = mid - 1
 		}
 	}
 
+	// left - точка вставки, проверяем left-1, left и left+1 если доступны
+	var minDist = math.MaxInt32
+	var closest *ExtremaPoint
+
+	candidates := []int{left - 1, left, left + 1}
+	for _, idx := range candidates {
+		if idx >= 0 && idx < len(slice) {
+			dist := int(math.Abs(float64(slice[idx].Index - index)))
+			if dist < minDist {
+				minDist = dist
+				closest = &slice[idx]
+			}
+		}
+	}
+
+	return closest
+}
+
+// findNearestExtrema находит ближайшие пики и впадины к заданному индексу
+func (em *ExtremaModel) findNearestExtrema(index int) (peak *ExtremaPoint, valley *ExtremaPoint) {
+	peak = em.findClosestExtrema(em.peaks, index)
+	valley = em.findClosestExtrema(em.valleys, index)
 	return peak, valley
 }
 
@@ -455,21 +479,22 @@ func (em *ExtremaModel) predictSignal(index int, prices []float64) internal.Sign
 
 // train обучает модель на исторических данных
 func (em *ExtremaModel) train(prices []float64) {
-	log.Printf("🔍 Анализ экстремумов в %d ценовых точках", len(prices))
+	//	log.Printf("🔍 Анализ экстремумов в %d ценовых точках", len(prices))
 	em.findSignificantExtrema(prices)
-	log.Printf("✅ Найдено %d значимых глобальных экстремумов", len(em.extremaPoints))
 
-	// Выводим статистику экстремумов
-	peaks := 0
-	valleys := 0
+	// Разделяем экстремумы на пики и впадины для эффективного поиска
+	em.peaks = make([]ExtremaPoint, 0, len(em.extremaPoints)/2)
+	em.valleys = make([]ExtremaPoint, 0, len(em.extremaPoints)/2)
 	for _, point := range em.extremaPoints {
 		if point.IsPeak {
-			peaks++
+			em.peaks = append(em.peaks, point)
 		} else {
-			valleys++
+			em.valleys = append(em.valleys, point)
 		}
 	}
-	log.Printf("   Глобальные пики: %d, Глобальные впадины: %d", peaks, valleys)
+
+	//	log.Printf("✅ Найдено %d значимых глобальных экстремумов", len(em.extremaPoints))
+	//	log.Printf("   Глобальные пики: %d, Глобальные впадины: %d", len(em.peaks), len(em.valleys))
 }
 
 type ExtremaStrategy struct{}
@@ -560,10 +585,10 @@ func (s *ExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyP
 	// УЛЬТРА КОНСЕРВАТИВНЫЙ grid search для МИНИМАЛЬНОГО количества экстремумов
 	smoothingTypes := []string{"ma", "ema"}
 	for _, smoothType := range smoothingTypes {
-		for smoothPeriod := 5; smoothPeriod <= 15; smoothPeriod += 2 {
-			for minDist := 30; minDist <= 100; minDist += 10 { // МАКСИМАЛЬНЫЙ диапазон для МАКСИМАЛЬНОЙ ФИЛЬТРАЦИИ
-				for winSize := 15; winSize <= 25; winSize += 3 { // МАКСИМАЛЬНОЕ окно для МАКСИМАЛЬНОЙ СТРОГОСТИ
-					for confThresh := 0.85; confThresh <= 0.98; confThresh += 0.03 { // МАКСИМАЛЬНЫЙ порог уверенности
+		for smoothPeriod := 10; smoothPeriod <= 15; smoothPeriod += 1 {
+			for minDist := 30; minDist <= 50; minDist += 5 { // МАКСИМАЛЬНЫЙ диапазон для МАКСИМАЛЬНОЙ ФИЛЬТРАЦИИ
+				for winSize := 20; winSize <= 25; winSize += 2 { // МАКСИМАЛЬНОЕ окно для МАКСИМАЛЬНОЙ СТРОГОСТИ
+					for confThresh := 0.8; confThresh <= 0.9; confThresh += 0.02 { // МАКСИМАЛЬНЫЙ порог уверенности
 						params := internal.StrategyParams{
 							MinExtremaDistance:  minDist,
 							LookbackWindow:      winSize,

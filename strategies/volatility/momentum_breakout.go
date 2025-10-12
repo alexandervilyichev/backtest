@@ -105,41 +105,6 @@ func findDynamicLevels(prices []float64, lookback int) (support, resistance []fl
 	return support, resistance
 }
 
-// calculateVolatility рассчитывает волатильность как стандартное отклонение доходностей
-func calculateVolatility(prices []float64, period int) []float64 {
-	if len(prices) < period+1 {
-		return nil
-	}
-
-	volatility := make([]float64, len(prices))
-
-	for i := period; i < len(prices); i++ {
-		// Рассчитываем доходности в окне
-		windowStart := i - period
-		windowPrices := prices[windowStart:i]
-
-		// Средняя доходность
-		sum := 0.0
-		for j := 1; j < len(windowPrices); j++ {
-			ret := (windowPrices[j] - windowPrices[j-1]) / windowPrices[j-1]
-			sum += ret
-		}
-		meanReturn := sum / float64(len(windowPrices)-1)
-
-		// Дисперсия доходностей
-		variance := 0.0
-		for j := 1; j < len(windowPrices); j++ {
-			ret := (windowPrices[j] - windowPrices[j-1]) / windowPrices[j-1]
-			variance += math.Pow(ret-meanReturn, 2)
-		}
-		variance /= float64(len(windowPrices) - 1)
-
-		volatility[i] = math.Sqrt(variance)
-	}
-
-	return volatility
-}
-
 // GenerateSignals генерирует торговые сигналы на основе моментума и прорывов
 func (s *MomentumBreakoutStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
 	if len(candles) < 50 {
@@ -184,16 +149,16 @@ func (s *MomentumBreakoutStrategy) GenerateSignals(candles []internal.Candle, pa
 
 	// Рассчитываем необходимые индикаторы
 	momentum := calculateMomentum(prices, momentumPeriod)
-	support, resistance := findDynamicLevels(prices, 20) // фиксированный lookback для уровней
-	volatility := calculateVolatility(prices, 20)        // фиксированный период для волатильности
+	support, resistance := findDynamicLevels(prices, 20)               // фиксированный lookback для уровней
+	volatility := internal.CalculateRollingStdDevOfReturns(prices, 20) // фиксированный период для волатильности
 
-	if momentum == nil || support == nil || resistance == nil || volatility == nil {
+	if momentum == nil || support == nil || resistance == nil {
 		log.Println("❌ Ошибка расчета индикаторов для momentum breakout")
 		return make([]internal.SignalType, len(candles))
 	}
 
-	log.Printf("🔍 Анализ momentum breakout: период=%d, порог=%.3f, объем=%.1f, волатильность=%.3f",
-		momentumPeriod, breakoutThreshold, volumeMultiplier, volatilityFilter)
+	// log.Printf("🔍 Анализ momentum breakout: период=%d, порог=%.3f, объем=%.1f, волатильность=%.3f",
+	//	momentumPeriod, breakoutThreshold, volumeMultiplier, volatilityFilter)
 
 	// Генерируем сигналы
 	signals := make([]internal.SignalType, len(candles))
@@ -276,7 +241,7 @@ func (s *MomentumBreakoutStrategy) GenerateSignals(candles []internal.Candle, pa
 		signals[i] = internal.HOLD
 	}
 
-	log.Printf("✅ Momentum breakout анализ завершен")
+	// log.Printf("✅ Momentum breakout анализ завершен")
 	return signals
 }
 

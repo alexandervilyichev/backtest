@@ -396,7 +396,7 @@ func (s *ARIMAStrategy) GenerateSignals(candles []internal.Candle, params intern
 		currentPrice := prices[i]
 
 		// Адаптивный порог
-		volatility := s.calculateVolatility(prices[intMax(0, i-50):i])
+		volatility := internal.CalculateStdDevOfReturns(prices[intMax(0, i-50):i])
 		adaptiveThreshold := baseThreshold + volatility*0.5
 
 		// Сигнал
@@ -418,10 +418,10 @@ func (s *ARIMAStrategy) GenerateSignals(candles []internal.Candle, params intern
 			signals[i] = internal.HOLD
 		}
 
-		if i%100 == 0 {
-			log.Printf("🧠 Свеча %d: цена=%.2f, прогноз=%.2f, тренд=%.3f, волат=%.3f, порог=%.3f, сигнал=%v",
-				i, currentPrice, forecast, trendStrength, volatility, adaptiveThreshold, signal)
-		}
+		// if i%100 == 0 {
+		// 	log.Printf("🧠 Свеча %d: цена=%.2f, прогноз=%.2f, тренд=%.3f, волат=%.3f, порог=%.3f, сигнал=%v",
+		// 		i, currentPrice, forecast, trendStrength, volatility, adaptiveThreshold, signal)
+		// }
 	}
 
 	log.Printf("✅ Улучшенный ARIMA анализ завершен")
@@ -453,34 +453,6 @@ func (s *ARIMAStrategy) validateModel(model *ARIMAModel, data []float64) bool {
 	}
 
 	return true
-}
-
-// calculateVolatility рассчитывает волатильность на основе стандартного отклонения
-func (s *ARIMAStrategy) calculateVolatility(prices []float64) float64 {
-	if len(prices) < 10 {
-		return 0.01 // дефолтная волатильность
-	}
-
-	// Рассчитываем доходности
-	returns := make([]float64, len(prices)-1)
-	for i := 1; i < len(prices); i++ {
-		returns[i-1] = (prices[i] - prices[i-1]) / prices[i-1]
-	}
-
-	// Рассчитываем стандартное отклонение
-	mean := 0.0
-	for _, ret := range returns {
-		mean += ret
-	}
-	mean /= float64(len(returns))
-
-	variance := 0.0
-	for _, ret := range returns {
-		variance += (ret - mean) * (ret - mean)
-	}
-	variance /= float64(len(returns))
-
-	return math.Sqrt(variance)
 }
 
 // calculateTrendStrength рассчитывает силу тренда с помощью линейной регрессии
@@ -517,7 +489,7 @@ func (s *ARIMAStrategy) generateEnhancedSignal(currentPrice, forecastPrice, thre
 	expectedChange := (forecastPrice - currentPrice) / currentPrice
 
 	// Адаптируем порог на основе рыночных условий
-	volatility := s.calculateVolatility(prices[intMax(0, currentIndex-30):currentIndex])
+	volatility := internal.CalculateStdDevOfReturns(prices[intMax(0, currentIndex-30):currentIndex])
 	adaptiveThreshold := threshold + volatility*0.3
 
 	// BUY: ожидаем рост цены выше порога

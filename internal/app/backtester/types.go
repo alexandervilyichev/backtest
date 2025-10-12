@@ -48,4 +48,6 @@ type Config struct {
 	Strategy    string
 	Debug       bool
 	SaveSignals int
+	CpuProfile  string
+	MemProfile  string
 }

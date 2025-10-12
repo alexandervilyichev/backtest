@@ -4,9 +4,29 @@
 package internal
 
 import (
+	"bytes"
+	"crypto/md5"
+	"encoding/binary"
+	"encoding/hex"
 	"math"
-	"strconv"
+	"sync"
 )
+
+var smaCache sync.Map
+var rsiCache sync.Map
+var rmCache sync.Map
+var rstdCache sync.Map
+
+func keyFor(typeAlgo string, typeInput string, period int) string {
+	var buf bytes.Buffer
+	binary.Write(&buf, binary.LittleEndian, typeAlgo)
+	binary.Write(&buf, binary.LittleEndian, typeInput)
+	binary.Write(&buf, binary.LittleEndian, int64(period))
+
+	hash := md5.Sum(buf.Bytes())
+	return hex.EncodeToString(hash[:])
+
+}
 
 // calculateSMACommon вычисляет простую скользящую среднюю
 func CalculateSMACommon(candles []Candle, period int) []float64 {
@@ -32,6 +52,11 @@ func CalculateSMACommon(candles []Candle, period int) []float64 {
 
 // calculateRSICommon вычисляет RSI
 func CalculateRSICommon(candles []Candle, period int) []float64 {
+	key := keyFor("RSI", "candles", period)
+	if cached, ok := rsiCache.Load(key); ok {
+		return cached.([]float64)
+	}
+
 	if len(candles) < period+1 {
 		return nil
 	}
@@ -86,6 +111,7 @@ func CalculateRSICommon(candles []Candle, period int) []float64 {
 		}
 	}
 
+	rsiCache.Store(key, rsi)
 	return rsi
 }
 
@@ -103,6 +129,11 @@ func avgCommon(xs []float64) float64 {
 
 // calculateRollingMin вычисляет скользящий минимум
 func CalculateRollingMin(candles []Candle, period int) []float64 {
+	key := keyFor("RMin", "candles", period)
+	if cached, ok := rmCache.Load(key); ok {
+		return cached.([]float64)
+	}
+
 	if len(candles) < period {
 		return nil
 	}
@@ -122,6 +153,7 @@ func CalculateRollingMin(candles []Candle, period int) []float64 {
 		minValues[i] = min
 	}
 
+	rmCache.Store(key, minValues)
 	return minValues
 }
 
@@ -189,6 +221,11 @@ func CalculateStochastic(candles []Candle, kPeriod, dPeriod int) ([]float64, []f
 
 // calculateSMACommonForValues вычисляет SMA для массива значений
 func CalculateSMACommonForValues(values []float64, period int) []float64 {
+	key := keyFor("SMA", "values", period)
+	if cached, ok := smaCache.Load(key); ok {
+		return cached.([]float64)
+	}
+
 	if len(values) < period {
 		return nil
 	}
@@ -206,6 +243,7 @@ func CalculateSMACommonForValues(values []float64, period int) []float64 {
 		sma[i] = sum / float64(period)
 	}
 
+	smaCache.Store(key, sma)
 	return sma
 }
 
@@ -389,28 +427,16 @@ func quantizeCandles(candles []Candle, levels int, priceStep float64) []Candle {
 
 	for i := range quantized {
 		quantizedPrice := quantizePrice(candles[i].Open.ToFloat64(), levels, priceStep)
-		quantized[i].Open = Price{
-			Units: strconv.FormatInt(int64(quantizedPrice), 10),
-			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
-		}
+		quantized[i].Open = Price(quantizedPrice)
 
 		quantizedPrice = quantizePrice(candles[i].High.ToFloat64(), levels, priceStep)
-		quantized[i].High = Price{
-			Units: strconv.FormatInt(int64(quantizedPrice), 10),
-			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
-		}
+		quantized[i].High = Price(quantizedPrice)
 
 		quantizedPrice = quantizePrice(candles[i].Low.ToFloat64(), levels, priceStep)
-		quantized[i].Low = Price{
-			Units: strconv.FormatInt(int64(quantizedPrice), 10),
-			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
-		}
+		quantized[i].Low = Price(quantizedPrice)
 
 		quantizedPrice = quantizePrice(candles[i].Close.ToFloat64(), levels, priceStep)
-		quantized[i].Close = Price{
-			Units: strconv.FormatInt(int64(quantizedPrice), 10),
-			Nano:  int32((quantizedPrice - float64(int64(quantizedPrice))) * 1_000_000_000),
-		}
+		quantized[i].Close = Price(quantizedPrice)
 	}
 
 	return quantized
@@ -435,4 +461,64 @@ func ApplyQuantizationToCandles(candles []Candle, params StrategyParams) []Candl
 	}
 
 	return quantizeCandles(candles, levels, priceStep)
+}
+
+// calculateMeanStd вычисляет среднее значение и стандартное отклонение массива
+func calculateMeanStd(data []float64) (float64, float64) {
+	if len(data) == 0 {
+		return 0, 0
+	}
+	sum := 0.0
+	for _, v := range data {
+		sum += v
+	}
+	mean := sum / float64(len(data))
+	varSum := 0.0
+	for _, v := range data {
+		diff := v - mean
+		varSum += diff * diff
+	}
+	variance := varSum / float64(len(data))
+	return mean, math.Sqrt(variance)
+}
+
+// CalculateRollingStdDevOfReturns вычисляет скользящую волатильность как стандартное отклонение доходностей
+func CalculateRollingStdDevOfReturns(prices []float64, period int) []float64 {
+	key := keyFor("Rstd", "values", period)
+	if cached, ok := rstdCache.Load(key); ok {
+		return cached.([]float64)
+	}
+
+	if len(prices) < period+1 {
+		return nil
+	}
+	volatility := make([]float64, len(prices))
+	for i := period; i < len(prices); i++ {
+		windowStart := i - period
+		windowPrices := prices[windowStart:i]
+		if len(windowPrices) >= 3 { // минимум 2 доходности
+			returns := make([]float64, len(windowPrices)-1)
+			for j := 1; j < len(windowPrices); j++ {
+				returns[j-1] = (windowPrices[j] - windowPrices[j-1]) / windowPrices[j-1]
+			}
+			_, stdDev := calculateMeanStd(returns)
+			volatility[i] = stdDev
+		}
+	}
+
+	rstdCache.Store(key, volatility)
+	return volatility
+}
+
+// CalculateStdDevOfReturns вычисляет волатильность как стандартное отклонение доходностей для всего массива
+func CalculateStdDevOfReturns(prices []float64) float64 {
+	if len(prices) < 2 {
+		return 0
+	}
+	returns := make([]float64, len(prices)-1)
+	for i := 1; i < len(prices); i++ {
+		returns[i-1] = (prices[i] - prices[i-1]) / prices[i-1]
+	}
+	_, stdDev := calculateMeanStd(returns)
+	return stdDev
 }

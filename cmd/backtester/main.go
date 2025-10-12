@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/pprof"
 	"sort"
 	"strings"
+	"time"
 
 	"bt/internal"
 
@@ -44,8 +46,18 @@ func LoadCandlesFromFile(filename string) []internal.Candle {
 		log.Fatal("❌ Ошибка парсинга JSON:", err)
 	}
 
+	// Precompute ParsedTime to optimize ToTime() calls
+	for i := range wrapper.Candles {
+		// Compute and store time.Time
+		t, err := time.Parse(time.RFC3339, wrapper.Candles[i].Time)
+		if err != nil {
+			log.Fatal("❌ Ошибка парсинга времени:", wrapper.Candles[i].Time, err)
+		}
+		wrapper.Candles[i].ParsedTime = t
+	}
+
 	sort.Slice(wrapper.Candles, func(i, j int) bool {
-		return wrapper.Candles[i].ToTime().Before(wrapper.Candles[j].ToTime())
+		return wrapper.Candles[i].ParsedTime.Before(wrapper.Candles[j].ParsedTime)
 	})
 
 	fmt.Printf("✅ Загружено %d свечей из %s\n", len(wrapper.Candles), filename)
@@ -55,6 +67,19 @@ func LoadCandlesFromFile(filename string) []internal.Candle {
 func main() {
 	// Парсинг командной строки
 	config := parseFlags()
+
+	// Запуск CPU профилирования если указано
+	if config.CpuProfile != "" {
+		f, err := os.Create(config.CpuProfile)
+		if err != nil {
+			log.Fatal("❌ Не удалось создать файл CPU профиля:", err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("❌ Не удалось запустить CPU профилирование:", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
 
 	// Загрузка данных
 	candles := LoadCandlesFromFile(config.Filename)
@@ -88,6 +113,18 @@ func main() {
 	} else if config.Debug {
 		fmt.Println("\n💡 Сохранение сигналов отключено флагом --save_signals=0")
 	}
+
+	// Memory профилирование
+	if config.MemProfile != "" {
+		f, err := os.Create(config.MemProfile)
+		if err != nil {
+			log.Fatal("❌ Не удалось создать файл memory профиля:", err)
+		}
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("❌ Не удалось записать memory профиль:", err)
+		}
+		f.Close()
+	}
 }
 
 // parseFlags — парсит командную строку и возвращает конфигурацию
@@ -96,6 +133,8 @@ func parseFlags() backtester.Config {
 	strategyName := flag.String("strategy", "all", "Стратегия: all (все стратегии) или "+strings.Join(internal.GetStrategyNames(), ", "))
 	debug := flag.Bool("debug", false, "Включить детальное логирование")
 	saveSignals := flag.Int("save_signals", 0, "Сохранить топ-N стратегий с сигналами (0 = не сохранять)")
+	cpuProfile := flag.String("cpu_profile", "", "Файл для CPU профилирования (пусто = отключено)")
+	memProfile := flag.String("mem_profile", "", "Файл для памяти профилирования (пусто = отключено)")
 	flag.Parse()
 
 	return backtester.Config{
@@ -103,6 +142,8 @@ func parseFlags() backtester.Config {
 		Strategy:    *strategyName,
 		Debug:       *debug,
 		SaveSignals: *saveSignals,
+		CpuProfile:  *cpuProfile,
+		MemProfile:  *memProfile,
 	}
 }
 
