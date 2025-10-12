@@ -200,77 +200,6 @@ func (s *OptimalExtremaStrategy) removeOverlapsAndDuplicates(pairs []OptimalExtr
 	return filtered
 }
 
-// GenerateSignals генерирует торговые сигналы на основе оптимальных пар экстремумов
-func (s *OptimalExtremaStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	// Шаг 1: Подготовка данных
-	if len(candles) < 3 {
-		log.Printf("⚠️ Недостаточно данных для анализа: получено %d свечей, требуется минимум 3", len(candles))
-		return make([]internal.SignalType, len(candles))
-	}
-
-	// Шаг 2: Поиск потенциальных экстремумов
-	potentialMinima, potentialMaxima := s.findPotentialExtrema(candles)
-
-	log.Printf("🔍 Найдено потенциальных минимумов: %d, максимумов: %d", len(potentialMinima), len(potentialMaxima))
-
-	// Шаг 3: Фильтрация и чередование экстремумов
-	sequence := s.createAlternatingSequence(potentialMinima, potentialMaxima)
-
-	// Удаляем некорректные начальные точки (если первый экстремум - максимум)
-	if len(sequence) > 0 && !sequence[0].IsBuy {
-		sequence = sequence[1:]
-	}
-
-	log.Printf("📊 Сформирована последовательность из %d экстремумов", len(sequence))
-
-	// Шаг 4: Проверка оптимальности интервалов
-	var optimalPairs []OptimalExtremaPoint
-	for i := 0; i < len(sequence)-1; i++ {
-		if sequence[i].IsBuy && !sequence[i+1].IsBuy {
-			// Пара: покупка -> продажа
-			if s.validateOptimalInterval(candles, sequence[i], sequence[i+1]) {
-				optimalPairs = append(optimalPairs, sequence[i], sequence[i+1])
-			}
-		}
-	}
-
-	log.Printf("✅ Найдено %d оптимальных пар (покупка -> продажа)", len(optimalPairs)/2)
-
-	// Шаг 5: Устранение пересечений и повторов
-	optimalPairs = s.removeOverlapsAndDuplicates(optimalPairs)
-
-	// Шаг 6: Генерация сигналов
-	signals := make([]internal.SignalType, len(candles))
-
-	for i := 0; i < len(optimalPairs); i += 2 {
-		if i+1 < len(optimalPairs) {
-			buyIndex := optimalPairs[i].Index
-			sellIndex := optimalPairs[i+1].Index
-
-			if buyIndex < len(signals) && sellIndex < len(signals) {
-				signals[buyIndex] = internal.BUY
-				signals[sellIndex] = internal.SELL
-			}
-		}
-	}
-
-	// Вывод статистики
-	buyCount := 0
-	sellCount := 0
-	for _, signal := range signals {
-		switch signal {
-		case internal.BUY:
-			buyCount++
-		case internal.SELL:
-			sellCount++
-		}
-	}
-
-	log.Printf("📈 Сгенерировано сигналов: BUY=%d, SELL=%d", buyCount, sellCount)
-
-	return signals
-}
-
 // Optimize выполняет оптимизацию параметров стратегии (в данной стратегии параметры не требуются)
 func (s *OptimalExtremaStrategy) DefaultConfig() internal.StrategyConfig {
 	return &OptimalExtremaConfig{}
@@ -373,11 +302,6 @@ func (s *OptimalExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) i
 
 	log.Printf("Лучшие параметры SOLID OptimalExtrema: профит=%.4f", bestProfit)
 	return bestConfig
-}
-
-func (s *OptimalExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	log.Printf("🔧 Оптимизация параметров для optimal_extrema_strategy (параметры не требуются)")
-	return internal.StrategyParams{}
 }
 
 func init() {

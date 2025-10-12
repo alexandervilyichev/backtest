@@ -112,6 +112,37 @@ func CalculateRSICommon(candles []Candle, period int) []float64 {
 	return rsi
 }
 
+// calculateOBV вычисляет On-Balance Volume
+func CalculateOBV(candles []Candle) []float64 {
+
+	if len(candles) < 2 {
+		return nil
+	}
+
+	obv := make([]float64, len(candles))
+	obv[0] = 0
+
+	for i := 1; i < len(candles); i++ {
+		currentVol := candles[i].VolumeFloat // используем предвычисленное значение
+
+		currentClose := candles[i].Close.ToFloat64()
+		previousClose := candles[i-1].Close.ToFloat64()
+
+		if currentClose > previousClose {
+			// Цена выросла - добавляем объем
+			obv[i] = obv[i-1] + currentVol
+		} else if currentClose < previousClose {
+			// Цена упала - вычитаем объем
+			obv[i] = obv[i-1] - currentVol
+		} else {
+			// Цена не изменилась - OBV не меняется
+			obv[i] = obv[i-1]
+		}
+	}
+
+	return obv
+}
+
 // avgCommon вычисляет среднее значение
 func avgCommon(xs []float64) float64 {
 	if len(xs) == 0 {
@@ -292,7 +323,7 @@ func CalculateVolatilityQstick(candles []Candle, period int) []float64 {
 }
 
 // calculateEMA вычисляет экспоненциальную скользящую среднюю
-func CalculateEMAForFloats(values []float64, period int) []float64 {
+func CalculateEMAForValues(values []float64, period int) []float64 {
 	if len(values) < period {
 		return nil
 	}
@@ -328,8 +359,8 @@ func CalculateMACDWithSignal(candles []Candle, fastPeriod, slowPeriod, signalPer
 	}
 
 	// Вычисляем быструю и медленную EMA
-	fastEMA := CalculateEMAForFloats(prices, fastPeriod)
-	slowEMA := CalculateEMAForFloats(prices, slowPeriod)
+	fastEMA := CalculateEMAForValues(prices, fastPeriod)
+	slowEMA := CalculateEMAForValues(prices, slowPeriod)
 	if fastEMA == nil || slowEMA == nil {
 		return nil, nil, nil
 	}
@@ -345,7 +376,7 @@ func CalculateMACDWithSignal(candles []Candle, fastPeriod, slowPeriod, signalPer
 	}
 
 	// Вычисляем сигнальную линию (EMA от MACD)
-	signalLine := CalculateEMAForFloats(macdLine, signalPeriod)
+	signalLine := CalculateEMAForValues(macdLine, signalPeriod)
 	if signalLine == nil {
 		return nil, nil, nil
 	}
@@ -434,77 +465,6 @@ func CalculateRollingCorrelation(x, y []float64, period int) []float64 {
 	}
 
 	return correlations
-}
-
-// quantizePrice квантизует цену до заданного количества уровней
-func quantizePrice(price float64, levels int, priceStep float64) float64 {
-	if levels <= 1 || priceStep <= 0 {
-		return price
-	}
-
-	// Если priceStep задан, используем его как размер шага
-	if priceStep > 0 {
-		return math.Round(price/priceStep) * priceStep
-	}
-
-	// Если priceStep не задан, рассчитываем на основе levels
-	// Для простоты используем фиксированный диапазон, например, от 0 до 1000
-	// В реальности нужно анализировать диапазон цен
-	minPrice := 0.0
-	maxPrice := 1000.0
-
-	step := (maxPrice - minPrice) / float64(levels)
-	level := math.Floor((price - minPrice) / step)
-	quantized := minPrice + level*step + step/2.0 // центр уровня
-
-	return quantized
-}
-
-// quantizeCandles квантизует все цены в массиве свечей
-func quantizeCandles(candles []Candle, levels int, priceStep float64) []Candle {
-	if !shouldQuantize(levels, priceStep) {
-		return candles
-	}
-
-	quantized := make([]Candle, len(candles))
-	copy(quantized, candles)
-
-	for i := range quantized {
-		quantizedPrice := quantizePrice(candles[i].Open.ToFloat64(), levels, priceStep)
-		quantized[i].Open = Price(quantizedPrice)
-
-		quantizedPrice = quantizePrice(candles[i].High.ToFloat64(), levels, priceStep)
-		quantized[i].High = Price(quantizedPrice)
-
-		quantizedPrice = quantizePrice(candles[i].Low.ToFloat64(), levels, priceStep)
-		quantized[i].Low = Price(quantizedPrice)
-
-		quantizedPrice = quantizePrice(candles[i].Close.ToFloat64(), levels, priceStep)
-		quantized[i].Close = Price(quantizedPrice)
-	}
-
-	return quantized
-}
-
-// shouldQuantize проверяет, нужно ли применять квантизацию
-func shouldQuantize(levels int, priceStep float64) bool {
-	return levels > 1 || priceStep > 0
-}
-
-// applyQuantizationToCandles применяет квантизацию к свечам если включена
-func ApplyQuantizationToCandles(candles []Candle, params StrategyParams) []Candle {
-	if !params.QuantizationEnabled {
-		return candles
-	}
-
-	levels := params.QuantizationLevels
-	priceStep := params.QuantizationPriceStep
-
-	if levels == 0 {
-		levels = 10 // значение по умолчанию
-	}
-
-	return quantizeCandles(candles, levels, priceStep)
 }
 
 // calculateMeanStd вычисляет среднее значение и стандартное отклонение массива

@@ -77,75 +77,6 @@ func (s *MaEmaCorrelationStrategy) Name() string {
 	return "ma_ema_correlation"
 }
 
-func (s *MaEmaCorrelationStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	maPeriod := params.MaEmaCorrelationMAPeriod
-	emaPeriod := params.MaEmaCorrelationEMAPeriod
-	lookback := params.MaEmaCorrelationLookback
-	threshold := params.MaEmaCorrelationThreshold
-
-	// Значения по умолчанию
-	if maPeriod == 0 {
-		maPeriod = 20
-	}
-	if emaPeriod == 0 {
-		emaPeriod = 20
-	}
-	if lookback == 0 {
-		lookback = 10
-	}
-	if threshold == 0 {
-		threshold = 0.7
-	}
-
-	// Получаем цены закрытия
-	prices := make([]float64, len(candles))
-	for i, candle := range candles {
-		prices[i] = candle.Close.ToFloat64()
-	}
-
-	// Рассчитываем MA и EMA
-	ma := internal.CalculateSMACommonForValues(prices, maPeriod)
-	ema := internal.CalculateEMAForFloats(prices, emaPeriod)
-
-	if ma == nil || ema == nil {
-		return make([]internal.SignalType, len(candles))
-	}
-
-	// Рассчитываем скользящую корреляцию между MA и EMA
-	correlations := internal.CalculateRollingCorrelation(ma, ema, lookback)
-	if correlations == nil {
-		return make([]internal.SignalType, len(candles))
-	}
-
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	// Начинаем анализ после достаточного количества данных
-	startIndex := maPeriod + emaPeriod + lookback - 3 // приблизительно
-
-	for i := startIndex; i < len(candles); i++ {
-		corr := correlations[i]
-
-		// BUY: высокая положительная корреляция
-		if !inPosition && corr > threshold {
-			signals[i] = internal.BUY
-			inPosition = true
-			continue
-		}
-
-		// SELL: отрицательная корреляция
-		if inPosition && corr < -threshold {
-			signals[i] = internal.SELL
-			inPosition = false
-			continue
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *MaEmaCorrelationStrategy) DefaultConfig() internal.StrategyConfig {
 	return &MAEmaCorrelationConfig{
 		MAPeriod:  20,
@@ -173,7 +104,7 @@ func (s *MaEmaCorrelationStrategy) GenerateSignalsWithConfig(candles []internal.
 
 	// Рассчитываем MA и EMA
 	ma := internal.CalculateSMACommonForValues(prices, maEmaConfig.MAPeriod)
-	ema := internal.CalculateEMAForFloats(prices, maEmaConfig.EMAPeriod)
+	ema := internal.CalculateEMAForValues(prices, maEmaConfig.EMAPeriod)
 
 	if ma == nil || ema == nil {
 		return make([]internal.SignalType, len(candles))

@@ -72,69 +72,6 @@ func (s *MovingAverageCrossoverStrategy) Name() string {
 	return "ma_crossover"
 }
 
-func (s *MovingAverageCrossoverStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	// Применяем квантизацию если включена
-	quantizedCandles := internal.ApplyQuantizationToCandles(candles, params)
-
-	// Используем параметры для быстрой и медленной скользящих средних
-	// Временно используем существующие поля StrategyParams, пока не добавлены специальные
-	fastPeriod := params.AoFastPeriod // Используем AoFastPeriod для быстрой MA
-	slowPeriod := params.AoSlowPeriod // Используем AoSlowPeriod для медленной MA
-
-	// Значения по умолчанию
-	if fastPeriod == 0 {
-		fastPeriod = 10
-	}
-	if slowPeriod == 0 {
-		slowPeriod = 20
-	}
-
-	// Рассчитываем скользящие средние
-	fastMA := internal.CalculateSMACommon(quantizedCandles, fastPeriod)
-	slowMA := internal.CalculateSMACommon(quantizedCandles, slowPeriod)
-
-	if fastMA == nil || slowMA == nil {
-		return make([]internal.SignalType, len(candles))
-	}
-
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	// Начинаем анализ с максимального из двух периодов
-	startIndex := slowPeriod - 1
-	if fastPeriod > slowPeriod {
-		startIndex = fastPeriod - 1
-	}
-
-	for i := startIndex; i < len(candles); i++ {
-		// Проверяем пересечение скользящих средних
-		if i > startIndex {
-			prevFast := fastMA[i-1]
-			prevSlow := slowMA[i-1]
-			currFast := fastMA[i]
-			currSlow := slowMA[i]
-
-			// Быстрая MA пересекает медленную MA снизу вверх - сигнал на покупку
-			if !inPosition && prevFast <= prevSlow && currFast > currSlow {
-				signals[i] = internal.BUY
-				inPosition = true
-				continue
-			}
-
-			// Быстрая MA пересекает медленную MA сверху вниз - сигнал на продажу
-			if inPosition && prevFast >= prevSlow && currFast < currSlow {
-				signals[i] = internal.SELL
-				inPosition = false
-				continue
-			}
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *MovingAverageCrossoverStrategy) DefaultConfig() internal.StrategyConfig {
 	return &MACrossoverConfig{
 		FastPeriod: 10,

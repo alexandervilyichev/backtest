@@ -69,56 +69,30 @@ func (s *OBVStrategy) Name() string {
 	return "obv_strategy"
 }
 
-// calculateOBV вычисляет On-Balance Volume
-func calculateOBV(candles []internal.Candle) []float64 {
-	if len(candles) < 2 {
-		return nil
-	}
-
-	obv := make([]float64, len(candles))
-	obv[0] = 0
-
-	for i := 1; i < len(candles); i++ {
-		currentVol := candles[i].VolumeFloat // используем предвычисленное значение
-
-		currentClose := candles[i].Close.ToFloat64()
-		previousClose := candles[i-1].Close.ToFloat64()
-
-		if currentClose > previousClose {
-			// Цена выросла - добавляем объем
-			obv[i] = obv[i-1] + currentVol
-		} else if currentClose < previousClose {
-			// Цена упала - вычитаем объем
-			obv[i] = obv[i-1] - currentVol
-		} else {
-			// Цена не изменилась - OBV не меняется
-			obv[i] = obv[i-1]
-		}
-	}
-
-	return obv
-}
-
 // detectOBVDivergence обнаруживает дивергенции между OBV и ценой
 func detectOBVDivergence(candles []internal.Candle, obv []float64, lookback int) (bool, bool) {
 	if len(candles) < lookback+2 || len(obv) < lookback+2 {
 		return false, false
 	}
 
-	// Ищем последние максимумы/минимумы цены и OBV
-	priceHigh := candles[len(candles)-1].Close.ToFloat64()
-	priceLow := candles[len(candles)-1].Close.ToFloat64()
-	obvHigh := obv[len(obv)-1]
-	obvLow := obv[len(obv)-1]
+	// Ищем максимумы и минимумы цены в lookback периоде
+	priceHigh := candles[len(candles)-lookback-1].Close.ToFloat64()
+	priceLow := candles[len(candles)-lookback-1].Close.ToFloat64()
 
-	// Ищем экстремумы в lookback периоде
+	// Ищем максимумы и минимумы OBV в lookback периоде
+	obvHigh := obv[len(obv)-lookback-1]
+	obvLow := obv[len(obv)-lookback-1]
+
+	// Ищем экстремумы в lookback периоде (исключая текущую свечу)
 	for i := len(candles) - lookback; i < len(candles)-1; i++ {
-		if candles[i].Close.ToFloat64() > priceHigh {
-			priceHigh = candles[i].Close.ToFloat64()
+		price := candles[i].Close.ToFloat64()
+		if price > priceHigh {
+			priceHigh = price
 		}
-		if candles[i].Close.ToFloat64() < priceLow {
-			priceLow = candles[i].Close.ToFloat64()
+		if price < priceLow {
+			priceLow = price
 		}
+
 		if obv[i] > obvHigh {
 			obvHigh = obv[i]
 		}
@@ -130,89 +104,13 @@ func detectOBVDivergence(candles []internal.Candle, obv []float64, lookback int)
 	currentPrice := candles[len(candles)-1].Close.ToFloat64()
 	currentOBV := obv[len(obv)-1]
 
-	// Медвежья дивергенция: цена делает новый максимум, OBV - нет
+	// Медвежья дивергенция: цена делает новый максимум, но OBV НЕ делает новый максимум
 	bearishDivergence := currentPrice > priceHigh && currentOBV < obvHigh
 
-	// Бычья дивергенция: цена делает новый минимум, OBV - нет
+	// Бычья дивергенция: цена делает новый минимум, но OBV НЕ делает новый минимум
 	bullishDivergence := currentPrice < priceLow && currentOBV > obvLow
 
 	return bullishDivergence, bearishDivergence
-}
-
-func (s *OBVStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	// Устанавливаем значения по умолчанию
-	obvPeriod := params.OBVPeriod
-	if obvPeriod == 0 {
-		obvPeriod = 20 // разумное значение по умолчанию
-	}
-
-	obvMultiplier := params.OBVMultiplier
-	if obvMultiplier == 0 {
-		obvMultiplier = 1.0 // значение по умолчанию
-	}
-
-	useDivergence := params.UseDivergence
-
-	for i := range candles {
-		if i < 2 {
-			signals[i] = internal.HOLD
-			continue
-		}
-
-		// Рассчитываем OBV для текущего момента
-		obv := calculateOBV(candles[:i+1])
-		if len(obv) < 2 {
-			signals[i] = internal.HOLD
-			continue
-		}
-
-		currentOBV := obv[len(obv)-1]
-		previousOBV := obv[len(obv)-2]
-
-		currentPrice := candles[i].Close.ToFloat64()
-		previousPrice := candles[i-1].Close.ToFloat64()
-
-		// Проверяем дивергенции если включены
-		var bullishDiv, bearishDiv bool
-		if useDivergence && i >= obvPeriod {
-			bullishDiv, bearishDiv = detectOBVDivergence(candles[:i+1], obv, obvPeriod)
-		}
-
-		// BUY сигналы:
-		// 1. OBV растет и цена растет (подтверждение тренда)
-		// 2. Бычья дивергенция
-		// 3. OBV значительно вырос (мультипликатор)
-		buySignal := (!inPosition && currentOBV > previousOBV && currentPrice > previousPrice) ||
-			(!inPosition && bullishDiv) ||
-			(!inPosition && currentOBV > previousOBV*obvMultiplier)
-
-		if buySignal {
-			signals[i] = internal.BUY
-			inPosition = true
-			continue
-		}
-
-		// SELL сигналы:
-		// 1. OBV падает
-		// 2. Медвежья дивергенция
-		// 3. Цена падает значительно
-		sellSignal := (inPosition && currentOBV < previousOBV) ||
-			(inPosition && bearishDiv) ||
-			(inPosition && currentPrice < previousPrice*0.98) // 2% падение цены
-
-		if sellSignal {
-			signals[i] = internal.SELL
-			inPosition = false
-			continue
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
 }
 
 func (s *OBVStrategy) DefaultConfig() internal.StrategyConfig {
@@ -236,21 +134,36 @@ func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, confi
 	signals := make([]internal.SignalType, len(candles))
 	inPosition := false
 
+	// Precompute OBV and its deltas for the whole series (config version)
+	obvAll := internal.CalculateOBV(candles)
+	if len(obvAll) < 2 {
+		return signals
+	}
+	dObv := make([]float64, len(candles))
+	absDObv := make([]float64, len(candles))
+	for i := 1; i < len(candles); i++ {
+		d := obvAll[i] - obvAll[i-1]
+		dObv[i] = d
+		if d < 0 {
+			absDObv[i] = -d
+		} else {
+			absDObv[i] = d
+		}
+	}
+	avgAbsDObv := internal.CalculateSMACommonForValues(absDObv, obvConfig.Period)
+
 	for i := range candles {
 		if i < 2 {
 			signals[i] = internal.HOLD
 			continue
 		}
 
-		// Рассчитываем OBV для текущего момента
-		obv := calculateOBV(candles[:i+1])
-		if len(obv) < 2 {
-			signals[i] = internal.HOLD
-			continue
+		// Use precomputed OBV values
+		deltaOBV := dObv[i]
+		avgAbs := 0.0
+		if avgAbsDObv != nil {
+			avgAbs = avgAbsDObv[i]
 		}
-
-		currentOBV := obv[len(obv)-1]
-		previousOBV := obv[len(obv)-2]
 
 		currentPrice := candles[i].Close.ToFloat64()
 		previousPrice := candles[i-1].Close.ToFloat64()
@@ -258,16 +171,17 @@ func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, confi
 		// Проверяем дивергенции если включены
 		var bullishDiv, bearishDiv bool
 		if obvConfig.UseDivergence && i >= obvConfig.Period {
-			bullishDiv, bearishDiv = detectOBVDivergence(candles[:i+1], obv, obvConfig.Period)
+			bullishDiv, bearishDiv = detectOBVDivergence(candles[:i+1], obvAll[:i+1], obvConfig.Period)
 		}
 
-		// BUY сигналы:
-		// 1. OBV растет и цена растет (подтверждение тренда)
+		// BUY сигналы (улучшенная логика):
+		// 1. Сильный рост OBV + умеренный рост цены (подтверждение тренда)
 		// 2. Бычья дивергенция
-		// 3. OBV значительно вырос (мультипликатор)
-		buySignal := (!inPosition && currentOBV > previousOBV && currentPrice > previousPrice) ||
-			(!inPosition && bullishDiv) ||
-			(!inPosition && currentOBV > previousOBV*obvConfig.Multiplier)
+		// 3. Значительный рост OBV относительно среднего уровня
+
+		// BUY: strong OBV thrust relative to recent average + price confirmation, or bullish divergence
+		strongOBVUptrend := !inPosition && i >= obvConfig.Period-1 && avgAbs > 0 && deltaOBV > obvConfig.Multiplier*avgAbs && currentPrice > previousPrice
+		buySignal := strongOBVUptrend || (!inPosition && bullishDiv)
 
 		if buySignal {
 			signals[i] = internal.BUY
@@ -275,13 +189,16 @@ func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, confi
 			continue
 		}
 
-		// SELL сигналы:
-		// 1. OBV падает
+		// SELL сигналы (улучшенная логика):
+		// 1. Значительное падение OBV (более 1%)
 		// 2. Медвежья дивергенция
-		// 3. Цена падает значительно
-		sellSignal := (inPosition && currentOBV < previousOBV) ||
-			(inPosition && bearishDiv) ||
-			(inPosition && currentPrice < previousPrice*0.98) // 2% падение цены
+		// 3. Цена падает значительно (более 3%)
+		// 4. Слабый рост OBV при падении цены (отсутствие подтверждения)
+		obvDrop := inPosition && i >= obvConfig.Period-1 && avgAbs > 0 && deltaOBV < -obvConfig.Multiplier*avgAbs
+		priceDrop := inPosition && previousPrice > 0 && (currentPrice-previousPrice)/previousPrice <= -0.01 // 1% падение цены
+		weakConfirmation := inPosition && currentPrice < previousPrice && deltaOBV <= 0                     // Цена падает, OBV не подтверждает
+
+		sellSignal := obvDrop || priceDrop || weakConfirmation || (inPosition && bearishDiv)
 
 		if sellSignal {
 			signals[i] = internal.SELL

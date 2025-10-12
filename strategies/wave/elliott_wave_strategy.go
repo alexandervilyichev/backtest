@@ -366,114 +366,114 @@ func (s *ElliottWaveStrategy) Name() string {
 	return "elliott_wave"
 }
 
-func (s *ElliottWaveStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	if len(candles) < 20 {
-		log.Printf("⚠️ Недостаточно данных для волнового анализа Эллиотта: получено %d свечей, требуется минимум 20", len(candles))
-		return make([]internal.SignalType, len(candles))
-	}
+// func (s *ElliottWaveStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
+// 	if len(candles) < 20 {
+// 		log.Printf("⚠️ Недостаточно данных для волнового анализа Эллиотта: получено %d свечей, требуется минимум 20", len(candles))
+// 		return make([]internal.SignalType, len(candles))
+// 	}
 
-	// Извлекаем параметры с более мягкими значениями по умолчанию
-	minWaveLength := params.MinWaveLength
-	if minWaveLength == 0 {
-		minWaveLength = 3 // уменьшили с 5 до 3
-	}
+// 	// Извлекаем параметры с более мягкими значениями по умолчанию
+// 	minWaveLength := params.MinWaveLength
+// 	if minWaveLength == 0 {
+// 		minWaveLength = 3 // уменьшили с 5 до 3
+// 	}
 
-	maxWaveLength := params.MaxWaveLength
-	if maxWaveLength == 0 {
-		maxWaveLength = 30 // уменьшили с 50 до 30
-	}
+// 	maxWaveLength := params.MaxWaveLength
+// 	if maxWaveLength == 0 {
+// 		maxWaveLength = 30 // уменьшили с 50 до 30
+// 	}
 
-	fibThreshold := params.FibonacciThreshold
-	if fibThreshold == 0 {
-		fibThreshold = 0.8 // увеличили с 0.618 до 0.8 для большей гибкости
-	}
+// 	fibThreshold := params.FibonacciThreshold
+// 	if fibThreshold == 0 {
+// 		fibThreshold = 0.8 // увеличили с 0.618 до 0.8 для большей гибкости
+// 	}
 
-	trendStrength := params.TrendStrength
-	if trendStrength == 0 {
-		trendStrength = 0.1 // уменьшили с 0.3 до 0.1 для меньшей строгости
-	}
+// 	trendStrength := params.TrendStrength
+// 	if trendStrength == 0 {
+// 		trendStrength = 0.1 // уменьшили с 0.3 до 0.1 для меньшей строгости
+// 	}
 
-	// Извлекаем ценовые данные
-	prices := make([]float64, len(candles))
-	for i, candle := range candles {
-		prices[i] = candle.Close.ToFloat64()
-	}
+// 	// Извлекаем ценовые данные
+// 	prices := make([]float64, len(candles))
+// 	for i, candle := range candles {
+// 		prices[i] = candle.Close.ToFloat64()
+// 	}
 
-	log.Printf("🔍 Анализ волн Эллиотта: мин.длина=%d, макс.длина=%d, фиб=%f, тренд=%f",
-		minWaveLength, maxWaveLength, fibThreshold, trendStrength)
+// 	log.Printf("🔍 Анализ волн Эллиотта: мин.длина=%d, макс.длина=%d, фиб=%f, тренд=%f",
+// 		minWaveLength, maxWaveLength, fibThreshold, trendStrength)
 
-	// Создаем и обучаем анализатор волн
-	analyzer := NewElliottWaveAnalyzer(minWaveLength, maxWaveLength, fibThreshold, trendStrength)
-	analyzer.findSignificantExtrema(prices)
-	wavePoints := analyzer.identifyWavePattern()
+// 	// Создаем и обучаем анализатор волн
+// 	analyzer := NewElliottWaveAnalyzer(minWaveLength, maxWaveLength, fibThreshold, trendStrength)
+// 	analyzer.findSignificantExtrema(prices)
+// 	wavePoints := analyzer.identifyWavePattern()
 
-	log.Printf("✅ Найдено %d волновых точек", len(wavePoints))
+// 	log.Printf("✅ Найдено %d волновых точек", len(wavePoints))
 
-	// Генерируем сигналы
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-	positionEntryPrice := 0.0
+// 	// Генерируем сигналы
+// 	signals := make([]internal.SignalType, len(candles))
+// 	inPosition := false
+// 	positionEntryPrice := 0.0
 
-	for i := 20; i < len(candles); i++ {
-		signal := analyzer.predictSignal(i, prices)
+// 	for i := 20; i < len(candles); i++ {
+// 		signal := analyzer.predictSignal(i, prices)
 
-		currentPrice := prices[i]
+// 		currentPrice := prices[i]
 
-		// Логика входа в позицию
-		if !inPosition {
-			switch signal {
-			case internal.BUY:
-				signals[i] = internal.BUY
-				inPosition = true
-				positionEntryPrice = currentPrice
-				// log.Printf("   BUY сигнал на свече %d: цена=%.2f", i, currentPrice)
-			case internal.SELL:
-				signals[i] = internal.SELL
-				inPosition = true
-				positionEntryPrice = currentPrice
-				// log.Printf("   SELL сигнал на свече %d: цена=%.2f", i, currentPrice)
-			default:
-				signals[i] = internal.HOLD
-			}
-		} else {
-			// Логика выхода из позиции
-			priceChangePercent := (currentPrice - positionEntryPrice) / positionEntryPrice
+// 		// Логика входа в позицию
+// 		if !inPosition {
+// 			switch signal {
+// 			case internal.BUY:
+// 				signals[i] = internal.BUY
+// 				inPosition = true
+// 				positionEntryPrice = currentPrice
+// 				// log.Printf("   BUY сигнал на свече %d: цена=%.2f", i, currentPrice)
+// 			case internal.SELL:
+// 				signals[i] = internal.SELL
+// 				inPosition = true
+// 				positionEntryPrice = currentPrice
+// 				// log.Printf("   SELL сигнал на свече %d: цена=%.2f", i, currentPrice)
+// 			default:
+// 				signals[i] = internal.HOLD
+// 			}
+// 		} else {
+// 			// Логика выхода из позиции
+// 			priceChangePercent := (currentPrice - positionEntryPrice) / positionEntryPrice
 
-			// Выходим при достижении цели прибыли (3% для BUY, -3% для SELL)
-			if (inPosition && signal == internal.BUY && priceChangePercent > 0.03) ||
-				(inPosition && signal == internal.SELL && priceChangePercent < -0.03) {
-				signals[i] = internal.SELL
-				inPosition = false
-				// log.Printf("   SELL (цель) на свече %d: цена=%.2f, изменение=%.2f%%",
-				// 	i, currentPrice, priceChangePercent*100)
-			} else if signal == internal.SELL && inPosition {
-				// Выходим если получаем прямой сигнал на выход
-				signals[i] = internal.SELL
-				inPosition = false
-				// log.Printf("   SELL сигнал на свече %d: цена=%.2f", i, currentPrice)
-			} else if signal == internal.BUY && inPosition {
-				// Выходим из короткой позиции если получаем сигнал на покупку
-				signals[i] = internal.BUY
-				inPosition = false
-				// log.Printf("   BUY (выход из SELL) на свече %d: цена=%.2f", i, currentPrice)
-			} else {
-				// Удерживаем позицию или выходим при стоп-лоссе (3% убыток)
-				if (inPosition && signal == internal.BUY && priceChangePercent < -0.03) ||
-					(inPosition && signal == internal.SELL && priceChangePercent > 0.03) {
-					signals[i] = internal.SELL
-					inPosition = false
-					// log.Printf("   SELL (стоп-лосс) на свече %d: цена=%.2f, изменение=%.2f%%",
-					// 	i, currentPrice, priceChangePercent*100)
-				} else {
-					signals[i] = internal.HOLD
-				}
-			}
-		}
-	}
+// 			// Выходим при достижении цели прибыли (3% для BUY, -3% для SELL)
+// 			if (inPosition && signal == internal.BUY && priceChangePercent > 0.03) ||
+// 				(inPosition && signal == internal.SELL && priceChangePercent < -0.03) {
+// 				signals[i] = internal.SELL
+// 				inPosition = false
+// 				// log.Printf("   SELL (цель) на свече %d: цена=%.2f, изменение=%.2f%%",
+// 				// 	i, currentPrice, priceChangePercent*100)
+// 			} else if signal == internal.SELL && inPosition {
+// 				// Выходим если получаем прямой сигнал на выход
+// 				signals[i] = internal.SELL
+// 				inPosition = false
+// 				// log.Printf("   SELL сигнал на свече %d: цена=%.2f", i, currentPrice)
+// 			} else if signal == internal.BUY && inPosition {
+// 				// Выходим из короткой позиции если получаем сигнал на покупку
+// 				signals[i] = internal.BUY
+// 				inPosition = false
+// 				// log.Printf("   BUY (выход из SELL) на свече %d: цена=%.2f", i, currentPrice)
+// 			} else {
+// 				// Удерживаем позицию или выходим при стоп-лоссе (3% убыток)
+// 				if (inPosition && signal == internal.BUY && priceChangePercent < -0.03) ||
+// 					(inPosition && signal == internal.SELL && priceChangePercent > 0.03) {
+// 					signals[i] = internal.SELL
+// 					inPosition = false
+// 					// log.Printf("   SELL (стоп-лосс) на свече %d: цена=%.2f, изменение=%.2f%%",
+// 					// 	i, currentPrice, priceChangePercent*100)
+// 				} else {
+// 					signals[i] = internal.HOLD
+// 				}
+// 			}
+// 		}
+// 	}
 
-	log.Printf("✅ Волновой анализ Эллиотта завершен")
-	return signals
-}
+// 	log.Printf("✅ Волновой анализ Эллиотта завершен")
+// 	return signals
+// }
 
 func (s *ElliottWaveStrategy) DefaultConfig() internal.StrategyConfig {
 	return &ElliottWaveConfig{

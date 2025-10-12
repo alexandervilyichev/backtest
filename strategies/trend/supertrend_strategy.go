@@ -180,56 +180,6 @@ func calculateSuperTrend(candles []internal.Candle, period int, multiplier float
 	return superTrend, upTrend
 }
 
-func (s *SuperTrendStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	period := params.SuperTrendPeriod
-	if period == 0 {
-		period = 10 // стандартный период для SuperTrend
-	}
-
-	multiplier := params.SuperTrendMultiplier
-	if multiplier == 0 {
-		multiplier = 3.0 // стандартный множитель для SuperTrend
-	}
-
-	superTrend, upTrend := calculateSuperTrend(candles, period, multiplier)
-	if superTrend == nil || upTrend == nil {
-		return make([]internal.SignalType, len(candles))
-	}
-
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	for i := period + 1; i < len(candles); i++ {
-		currentPrice := candles[i].Close.ToFloat64()
-		currentSuperTrend := superTrend[i]
-		currentTrend := upTrend[i]
-
-		prevPrice := candles[i-1].Close.ToFloat64()
-		prevSuperTrend := superTrend[i-1]
-		prevTrend := upTrend[i-1]
-
-		// BUY сигнал: цена пересекает SuperTrend снизу вверх
-		// Это происходит когда тренд меняется с нисходящего на восходящий
-		if !inPosition && !prevTrend && currentTrend && prevPrice <= prevSuperTrend && currentPrice > currentSuperTrend {
-			signals[i] = internal.BUY
-			inPosition = true
-			continue
-		}
-
-		// SELL сигнал: цена пересекает SuperTrend сверху вниз
-		// Это происходит когда тренд меняется с восходящего на нисходящий
-		if inPosition && prevTrend && !currentTrend && prevPrice >= prevSuperTrend && currentPrice < currentSuperTrend {
-			signals[i] = internal.SELL
-			inPosition = false
-			continue
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *SuperTrendStrategy) DefaultConfig() internal.StrategyConfig {
 	return &SupertrendConfig{
 		Period:     10,

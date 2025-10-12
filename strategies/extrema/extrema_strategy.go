@@ -129,7 +129,7 @@ func (em *ExtremaModel) smoothPrices(prices []float64) []float64 {
 
 	switch em.smoothingType {
 	case "ema":
-		smoothed := internal.CalculateEMAForFloats(prices, em.smoothingPeriod)
+		smoothed := internal.CalculateEMAForValues(prices, em.smoothingPeriod)
 		if smoothed == nil {
 			return prices // Возвращаем оригинал если сглаживание не удалось
 		}
@@ -530,78 +530,12 @@ func (em *ExtremaModel) train(prices []float64) {
 			em.valleys = append(em.valleys, point)
 		}
 	}
-
-	//	log.Printf("✅ Найдено %d значимых глобальных экстремумов", len(em.extremaPoints))
-	//	log.Printf("   Глобальные пики: %d, Глобальные впадины: %d", len(em.peaks), len(em.valleys))
 }
 
 type ExtremaStrategy struct{}
 
 func (s *ExtremaStrategy) Name() string {
 	return "extrema_strategy"
-}
-
-func (s *ExtremaStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	if len(candles) < 50 {
-		log.Printf("⚠️ Недостаточно данных для анализа экстремумов: получено %d свечей, требуется минимум 50", len(candles))
-		return make([]internal.SignalType, len(candles))
-	}
-
-	// Извлекаем ценовые данные
-	prices := make([]float64, len(candles))
-	for i, candle := range candles {
-		prices[i] = candle.Close.ToFloat64()
-	}
-
-	// Используем параметры из params с УЛЬТРА консервативными значениями по умолчанию
-	minDistance := params.MinExtremaDistance
-	if minDistance == 0 {
-		minDistance = 80 // УЛЬТРА расстояние для МАКСИМАЛЬНОЙ ФИЛЬТРАЦИИ шума
-	}
-	windowSize := params.LookbackWindow
-	if windowSize == 0 {
-		windowSize = 20 // УЛЬТРА окно для МАКСИМАЛЬНО СТРОГОГО поиска экстремумов
-	}
-	confidenceThreshold := params.ConfidenceThreshold
-	if confidenceThreshold == 0 {
-		confidenceThreshold = 0.95 // УЛЬТРА порог уверенности для МИНИМАЛЬНОГО количества сигналов
-	}
-	smoothingType := params.SmoothingType
-	if smoothingType == "" {
-		smoothingType = "ma" // По умолчанию используем MA
-	}
-	smoothingPeriod := params.SmoothingPeriod
-	if smoothingPeriod == 0 {
-		smoothingPeriod = 10 // Период сглаживания по умолчанию
-	}
-
-	// Создаем и обучаем модель экстремумов
-	minStrength := 1.5               // Минимальная сила экстремума
-	lookbackPeriod := windowSize * 3 // Период для анализа силы экстремума
-	model := NewExtremaModel(minDistance, windowSize, minStrength, lookbackPeriod, smoothingType, smoothingPeriod)
-	model.train(prices)
-
-	// Генерируем сигналы
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	for i := 20; i < len(candles); i++ { // начинаем после достаточного количества данных
-		signal := model.predictSignal(i, prices)
-
-		// Применяем логику позиционирования
-		if !inPosition && signal == internal.BUY {
-			signals[i] = internal.BUY
-			inPosition = true
-		} else if inPosition && signal == internal.SELL {
-			signals[i] = internal.SELL
-			inPosition = false
-		} else {
-			signals[i] = internal.HOLD
-		}
-	}
-
-	log.Printf("✅ Анализ экстремумов завершен")
-	return signals
 }
 
 func (s *ExtremaStrategy) DefaultConfig() internal.StrategyConfig {

@@ -19,23 +19,6 @@ func (s *BuyAndHoldStrategy) Name() string {
 	return "buy_and_hold"
 }
 
-func (s *BuyAndHoldStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	signals := make([]internal.SignalType, len(candles))
-	if len(candles) == 0 {
-		return signals
-	}
-
-	// Покупаем на первой свече
-	signals[0] = internal.BUY
-
-	// Никогда не продаем
-	for i := 1; i < len(signals); i++ {
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *BuyAndHoldStrategy) DefaultConfig() internal.StrategyConfig {
 	return &BuyAndHoldConfig{}
 }

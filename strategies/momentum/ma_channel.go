@@ -79,61 +79,6 @@ func (s *MAChannelStrategy) Name() string {
 	return "ma_channel"
 }
 
-func (s *MAChannelStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	fastPeriod := params.MAChannelFastPeriod
-	slowPeriod := params.MAChannelSlowPeriod
-	multiplier := params.MAChannelMultiplier
-
-	if fastPeriod == 0 {
-		fastPeriod = 10 // default
-	}
-	if slowPeriod == 0 {
-		slowPeriod = 20 // default
-	}
-	if multiplier == 0 {
-		multiplier = 1.0 // default
-	}
-
-	upperChannel, lowerChannel := internal.CalculateMAChannel(candles, fastPeriod, slowPeriod, multiplier)
-	if upperChannel == nil || lowerChannel == nil {
-		return make([]internal.SignalType, len(candles))
-	}
-
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	for i := slowPeriod; i < len(candles); i++ {
-		closePrice := candles[i].Close.ToFloat64()
-		upper := upperChannel[i]
-		lower := lowerChannel[i]
-
-		if upper == 0 || lower == 0 {
-			signals[i] = internal.HOLD
-			continue
-		}
-
-		if !inPosition {
-			// Buy when price breaks above upper channel
-			if closePrice > upper {
-				signals[i] = internal.BUY
-				inPosition = true
-				continue
-			}
-		} else {
-			// Sell when price breaks below lower channel
-			if closePrice < lower {
-				signals[i] = internal.SELL
-				inPosition = false
-				continue
-			}
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *MAChannelStrategy) DefaultConfig() internal.StrategyConfig {
 	return &MAChannelConfig{
 		FastPeriod: 10,

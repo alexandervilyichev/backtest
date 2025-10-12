@@ -159,60 +159,6 @@ func calculateBollingerBands(candles []internal.Candle, period int, multiplier f
 	return upper, middle, lower
 }
 
-func (s *BollingerBandsStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	period := params.BollingerBandsPeriod
-	if period == 0 {
-		period = 20 // стандартный период Bollinger Bands
-	}
-
-	multiplier := params.BollingerBandsMultiplier
-	if multiplier == 0 {
-		multiplier = 2.0 // стандартный множитель
-	}
-
-	upper, _, lower := calculateBollingerBands(candles, period, multiplier)
-	if upper == nil || lower == nil {
-		return make([]internal.SignalType, len(candles))
-	}
-
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	for i := period; i < len(candles); i++ {
-		currentPrice := candles[i].Close.ToFloat64()
-		currentLower := lower[i]
-		currentUpper := upper[i]
-
-		// Получаем предыдущие значения для обнаружения пересечений
-		var prevPrice, prevLower, prevUpper float64
-		if i > 0 {
-			prevPrice = candles[i-1].Close.ToFloat64()
-			if i-1 < len(lower) && i-1 < len(upper) {
-				prevLower = lower[i-1]
-				prevUpper = upper[i-1]
-			}
-		}
-
-		// BUY: цена пересекает нижнюю полосу снизу вверх
-		if !inPosition && prevPrice <= prevLower && currentPrice > currentLower {
-			signals[i] = internal.BUY
-			inPosition = true
-			continue
-		}
-
-		// SELL: цена пересекает верхнюю полосу сверху вниз
-		if inPosition && prevPrice >= prevUpper && currentPrice < currentUpper {
-			signals[i] = internal.SELL
-			inPosition = false
-			continue
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *BollingerBandsStrategy) DefaultConfig() internal.StrategyConfig {
 	return &BollingerBandsConfig{
 		Period:     20,

@@ -65,44 +65,6 @@ func (s *PullbackSellStrategy) Name() string {
 	return "pullback_sell"
 }
 
-func (s *PullbackSellStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	// Используем параметр чувствительности для определения силы движения
-	sensitivity := params.PullbackSensitivity
-	if sensitivity == 0 {
-		sensitivity = 1 // значение по умолчанию
-	}
-
-	for i := sensitivity; i < len(candles); i++ {
-		// Проверяем движение за последние 'sensitivity' свечей
-		prevClose := candles[i-sensitivity].Close.ToFloat64()
-		currClose := candles[i].Close.ToFloat64()
-
-		// Рассчитываем процентное изменение
-		priceChange := (currClose - prevClose) / prevClose * 100
-
-		// BUY: значительный рост цены
-		if !inPosition && priceChange > float64(sensitivity)*0.5 { // 0.5% на каждую единицу чувствительности
-			signals[i] = internal.BUY
-			inPosition = true
-			continue
-		}
-
-		// SELL: откат (падение) цены
-		if inPosition && priceChange < -float64(sensitivity)*0.3 { // 0.3% на каждую единицу чувствительности
-			signals[i] = internal.SELL
-			inPosition = false
-			continue
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *PullbackSellStrategy) DefaultConfig() internal.StrategyConfig {
 	return &PullbackSellConfig{
 		Sensitivity: 1,

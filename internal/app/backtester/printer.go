@@ -32,13 +32,14 @@ func (p *ConsolePrinter) PrintComparison(results []BenchmarkResult) {
 	rank := 1
 	for i, r := range results {
 		rankStr := fmt.Sprintf("%d", rank)
-		if i == 0 {
+		switch i {
+		case 0:
 			rankStr = "🥇 " + rankStr
-		} else if i == 1 {
+		case 1:
 			rankStr = "🥈 " + rankStr
-		} else if i == 2 {
+		case 2:
 			rankStr = "🥉 " + rankStr
-		} else {
+		default:
 			rankStr = "  " + rankStr
 		}
 

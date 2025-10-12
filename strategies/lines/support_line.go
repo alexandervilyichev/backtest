@@ -77,62 +77,6 @@ func (s *SupportLineStrategy) Name() string {
 	return "support_line"
 }
 
-func (s *SupportLineStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	lookback := params.SupportLookbackPeriod
-	if lookback == 0 {
-		lookback = 20 // default
-	}
-
-	supportLevels := internal.CalculateRollingMin(candles, lookback)
-	if supportLevels == nil {
-		return make([]internal.SignalType, len(candles))
-	}
-
-	buyThreshold := params.SupportBuyThreshold
-	sellThreshold := params.SupportSellThreshold
-	if buyThreshold == 0 {
-		buyThreshold = 0.005 // 0.5%
-	}
-	if sellThreshold == 0 {
-		sellThreshold = 0.01 // 1%
-	}
-
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-	var entryPrice float64
-
-	for i := lookback; i < len(candles); i++ {
-		support := supportLevels[i]
-		closePrice := candles[i].Close.ToFloat64()
-
-		if !inPosition && closePrice <= support*(1+buyThreshold) {
-			signals[i] = internal.BUY
-			inPosition = true
-			entryPrice = closePrice
-			continue
-		}
-
-		if inPosition {
-			// Sell if price breaks below support
-			if closePrice <= support*(1-sellThreshold) {
-				signals[i] = internal.SELL
-				inPosition = false
-				continue
-			}
-			// Take profit if price rises 3% above entry
-			if closePrice >= entryPrice*1.03 {
-				signals[i] = internal.SELL
-				inPosition = false
-				continue
-			}
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *SupportLineStrategy) DefaultConfig() internal.StrategyConfig {
 	return &SupportLineConfig{
 		LookbackPeriod: 20,

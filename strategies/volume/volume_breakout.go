@@ -66,54 +66,6 @@ func (s *VolumeBreakoutStrategy) Name() string {
 	return "volume_breakout"
 }
 
-func (s *VolumeBreakoutStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-
-	// Устанавливаем значение по умолчанию для VolumeMultiplier
-	volumeMultiplier := params.VolumeMultiplier
-	if volumeMultiplier == 0 {
-		volumeMultiplier = 1.5 // разумное значение по умолчанию
-	}
-
-	for i := range candles {
-		if i < 3 {
-			signals[i] = internal.HOLD
-			continue
-		}
-
-		var totalVolume float64
-		for j := i - 3; j < i; j++ {
-			vol := candles[j].VolumeFloat // используем предвычисленное значение
-			totalVolume += vol
-		}
-		avgVolume := totalVolume / 3.0
-
-		currentVol := candles[i].VolumeFloat // используем предвычисленное значение
-
-		openPrice := candles[i].Open.ToFloat64()
-		closePrice := candles[i].Close.ToFloat64()
-
-		// BUY: зеленая свеча с высоким объемом
-		if !inPosition && closePrice > openPrice && currentVol > avgVolume*volumeMultiplier {
-			signals[i] = internal.BUY
-			inPosition = true
-			continue
-		}
-
-		// SELL: красная свеча или достижение цели
-		if inPosition && (closePrice < openPrice || currentVol > avgVolume*volumeMultiplier*2) {
-			signals[i] = internal.SELL
-			inPosition = false
-			continue
-		}
-
-		signals[i] = internal.HOLD
-	}
-
-	return signals
-}
-
 func (s *VolumeBreakoutStrategy) DefaultConfig() internal.StrategyConfig {
 	return &VolumeBreakoutConfig{
 		Multiplier: 1.5,
