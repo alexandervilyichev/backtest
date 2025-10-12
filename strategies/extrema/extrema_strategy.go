@@ -44,10 +44,48 @@ package extrema
 
 import (
 	"bt/internal"
+	"errors"
+	"fmt"
 	"log"
 	"math"
 	"sort"
 )
+
+type ExtremaConfig struct {
+	MinDistance     int     `json:"min_distance"`
+	WindowSize      int     `json:"window_size"`
+	MinStrength     float64 `json:"min_strength"`
+	LookbackPeriod  int     `json:"lookback_period"`
+	SmoothingType   string  `json:"smoothing_type"`
+	SmoothingPeriod int     `json:"smoothing_period"`
+}
+
+func (c *ExtremaConfig) Validate() error {
+	if c.MinDistance <= 0 {
+		return errors.New("min distance must be positive")
+	}
+	if c.WindowSize <= 0 {
+		return errors.New("window size must be positive")
+	}
+	if c.MinStrength <= 0 {
+		return errors.New("min strength must be positive")
+	}
+	if c.LookbackPeriod <= 0 {
+		return errors.New("lookback period must be positive")
+	}
+	if c.SmoothingType != "ma" && c.SmoothingType != "ema" {
+		return errors.New("smoothing type must be 'ma' or 'ema'")
+	}
+	if c.SmoothingPeriod <= 0 {
+		return errors.New("smoothing period must be positive")
+	}
+	return nil
+}
+
+func (c *ExtremaConfig) DefaultConfigString() string {
+	return fmt.Sprintf("Extrema(min_dist=%d, win=%d, strength=%.1f, smooth=%s:%d)",
+		c.MinDistance, c.WindowSize, c.MinStrength, c.SmoothingType, c.SmoothingPeriod)
+}
 
 // ExtremaPoint — точка экстремума
 type ExtremaPoint struct {
@@ -566,13 +604,73 @@ func (s *ExtremaStrategy) GenerateSignals(candles []internal.Candle, params inte
 	return signals
 }
 
-func (s *ExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		MinExtremaDistance:  40,  // УЛЬТРА КОНСЕРВАТИВНОЕ начальное значение
-		LookbackWindow:      15,  // УЛЬТРА КОНСЕРВАТИВНОЕ начальное значение
-		ConfidenceThreshold: 0.9, // УЛЬТРА КОНСЕРВАТИВНОЕ начальное значение
-		SmoothingType:       "ma",
-		SmoothingPeriod:     8,
+func (s *ExtremaStrategy) DefaultConfig() internal.StrategyConfig {
+	return &ExtremaConfig{
+		MinDistance:     40,
+		WindowSize:      20,
+		MinStrength:     1.5,
+		LookbackPeriod:  60,
+		SmoothingType:   "ma",
+		SmoothingPeriod: 10,
+	}
+}
+
+func (s *ExtremaStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	extremaConfig, ok := config.(*ExtremaConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := extremaConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if len(candles) < 50 {
+		log.Printf("⚠️ Недостаточно данных для анализа экстремумов: получено %d свечей, требуется минимум 50", len(candles))
+		return make([]internal.SignalType, len(candles))
+	}
+
+	// Извлекаем ценовые данные
+	prices := make([]float64, len(candles))
+	for i, candle := range candles {
+		prices[i] = candle.Close.ToFloat64()
+	}
+
+	// Создаем и обучаем модель экстремумов
+	model := NewExtremaModel(extremaConfig.MinDistance, extremaConfig.WindowSize, extremaConfig.MinStrength, extremaConfig.LookbackPeriod, extremaConfig.SmoothingType, extremaConfig.SmoothingPeriod)
+	model.train(prices)
+
+	// Генерируем сигналы
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	for i := 20; i < len(candles); i++ { // начинаем после достаточного количества данных
+		signal := model.predictSignal(i, prices)
+
+		// Применяем логику позиционирования
+		if !inPosition && signal == internal.BUY {
+			signals[i] = internal.BUY
+			inPosition = true
+		} else if inPosition && signal == internal.SELL {
+			signals[i] = internal.SELL
+			inPosition = false
+		} else {
+			signals[i] = internal.HOLD
+		}
+	}
+
+	log.Printf("✅ Анализ экстремумов завершен")
+	return signals
+}
+
+func (s *ExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &ExtremaConfig{
+		MinDistance:     40,
+		WindowSize:      20,
+		MinStrength:     1.5,
+		LookbackPeriod:  60,
+		SmoothingType:   "ma",
+		SmoothingPeriod: 10,
 	}
 	bestProfit := -1.0
 
@@ -582,25 +680,27 @@ func (s *ExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyP
 		prices[i] = candle.Close.ToFloat64()
 	}
 
-	// УЛЬТРА КОНСЕРВАТИВНЫЙ grid search для МИНИМАЛЬНОГО количества экстремумов
+	// Grid search для параметров экстремумов
 	smoothingTypes := []string{"ma", "ema"}
 	for _, smoothType := range smoothingTypes {
-		for smoothPeriod := 10; smoothPeriod <= 15; smoothPeriod += 1 {
-			for minDist := 30; minDist <= 50; minDist += 5 { // МАКСИМАЛЬНЫЙ диапазон для МАКСИМАЛЬНОЙ ФИЛЬТРАЦИИ
-				for winSize := 20; winSize <= 25; winSize += 2 { // МАКСИМАЛЬНОЕ окно для МАКСИМАЛЬНОЙ СТРОГОСТИ
-					for confThresh := 0.8; confThresh <= 0.9; confThresh += 0.02 { // МАКСИМАЛЬНЫЙ порог уверенности
-						params := internal.StrategyParams{
-							MinExtremaDistance:  minDist,
-							LookbackWindow:      winSize,
-							ConfidenceThreshold: confThresh,
-							SmoothingType:       smoothType,
-							SmoothingPeriod:     smoothPeriod,
+		for smoothPeriod := 8; smoothPeriod <= 15; smoothPeriod += 2 {
+			for minDist := 30; minDist <= 50; minDist += 10 {
+				for winSize := 15; winSize <= 25; winSize += 5 {
+					for minStr := 1.0; minStr <= 2.0; minStr += 0.5 {
+						config := &ExtremaConfig{
+							MinDistance:     minDist,
+							WindowSize:      winSize,
+							MinStrength:     minStr,
+							LookbackPeriod:  winSize * 3,
+							SmoothingType:   smoothType,
+							SmoothingPeriod: smoothPeriod,
+						}
+						if config.Validate() != nil {
+							continue
 						}
 
 						// Create model with these parameters
-						minStrength := 1.5            // Минимальная сила экстремума
-						lookbackPeriod := winSize * 3 // Период для анализа силы экстремума
-						model := NewExtremaModel(minDist, winSize, minStrength, lookbackPeriod, smoothType, smoothPeriod)
+						model := NewExtremaModel(minDist, winSize, minStr, winSize*3, smoothType, smoothPeriod)
 						model.train(prices)
 
 						// Generate signals
@@ -625,7 +725,7 @@ func (s *ExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyP
 						result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 						if result.TotalProfit > bestProfit {
 							bestProfit = result.TotalProfit
-							bestParams = params
+							bestConfig = config
 						}
 					}
 				}
@@ -633,10 +733,11 @@ func (s *ExtremaStrategy) Optimize(candles []internal.Candle) internal.StrategyP
 		}
 	}
 
-	log.Printf("Лучшие параметры extrema: smoothType=%s, smoothPeriod=%d, minDist=%d, winSize=%d, confThresh=%.1f, profit=%.2f",
-		bestParams.SmoothingType, bestParams.SmoothingPeriod, bestParams.MinExtremaDistance, bestParams.LookbackWindow, bestParams.ConfidenceThreshold, bestProfit)
+	fmt.Printf("Лучшие параметры SOLID Extrema: min_dist=%d, win=%d, strength=%.1f, smooth=%s:%d, профит=%.4f\n",
+		bestConfig.MinDistance, bestConfig.WindowSize, bestConfig.MinStrength,
+		bestConfig.SmoothingType, bestConfig.SmoothingPeriod, bestProfit)
 
-	return bestParams
+	return bestConfig
 }
 
 func init() {

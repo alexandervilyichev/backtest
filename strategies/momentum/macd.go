@@ -40,8 +40,36 @@ package momentum
 
 import (
 	"bt/internal"
+	"errors"
 	"fmt"
 )
+
+type MACDConfig struct {
+	FastPeriod   int `json:"fast_period"`
+	SlowPeriod   int `json:"slow_period"`
+	SignalPeriod int `json:"signal_period"`
+}
+
+func (c *MACDConfig) Validate() error {
+	if c.FastPeriod <= 0 {
+		return errors.New("fast period must be positive")
+	}
+	if c.SlowPeriod <= 0 {
+		return errors.New("slow period must be positive")
+	}
+	if c.SignalPeriod <= 0 {
+		return errors.New("signal period must be positive")
+	}
+	if c.FastPeriod >= c.SlowPeriod {
+		return errors.New("fast period must be less than slow period")
+	}
+	return nil
+}
+
+func (c *MACDConfig) DefaultConfigString() string {
+	return fmt.Sprintf("MACD(fast=%d, slow=%d, signal=%d)",
+		c.FastPeriod, c.SlowPeriod, c.SignalPeriod)
+}
 
 type MACDStrategy struct{}
 
@@ -49,22 +77,25 @@ func (s *MACDStrategy) Name() string {
 	return "macd"
 }
 
-func (s *MACDStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-	fastPeriod := params.MACDFastPeriod
-	slowPeriod := params.MACDSlowPeriod
-	signalPeriod := params.MACDSignalPeriod
+func (s *MACDStrategy) DefaultConfig() internal.StrategyConfig {
+	return &MACDConfig{
+		FastPeriod:   12,
+		SlowPeriod:   26,
+		SignalPeriod: 9,
+	}
+}
 
-	if fastPeriod == 0 {
-		fastPeriod = 12 // default
-	}
-	if slowPeriod == 0 {
-		slowPeriod = 26 // default
-	}
-	if signalPeriod == 0 {
-		signalPeriod = 9 // default
+func (s *MACDStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	macdConfig, ok := config.(*MACDConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
 	}
 
-	macdLine, signalLine, _ := internal.CalculateMACDWithSignal(candles, fastPeriod, slowPeriod, signalPeriod)
+	if err := macdConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	macdLine, signalLine, _ := internal.CalculateMACDWithSignal(candles, macdConfig.FastPeriod, macdConfig.SlowPeriod, macdConfig.SignalPeriod)
 	if macdLine == nil || signalLine == nil {
 		return make([]internal.SignalType, len(candles))
 	}
@@ -72,7 +103,7 @@ func (s *MACDStrategy) GenerateSignals(candles []internal.Candle, params interna
 	signals := make([]internal.SignalType, len(candles))
 	inPosition := false
 
-	for i := slowPeriod + signalPeriod - 1; i < len(candles); i++ {
+	for i := macdConfig.SlowPeriod + macdConfig.SignalPeriod - 1; i < len(candles); i++ {
 		macd := macdLine[i]
 		signal := signalLine[i]
 		macdPrev := macdLine[i-1]
@@ -100,15 +131,13 @@ func (s *MACDStrategy) GenerateSignals(candles []internal.Candle, params interna
 	return signals
 }
 
-func (s *MACDStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		MACDFastPeriod:   12,
-		MACDSlowPeriod:   26,
-		MACDSignalPeriod: 9,
+func (s *MACDStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &MACDConfig{
+		FastPeriod:   12,
+		SlowPeriod:   26,
+		SignalPeriod: 9,
 	}
 	bestProfit := -1.0
-
-	generator := s.GenerateSignals
 
 	// Grid search по периодам
 	for fast := 8; fast <= 16; fast += 2 {
@@ -118,25 +147,29 @@ func (s *MACDStrategy) Optimize(candles []internal.Candle) internal.StrategyPara
 					continue // fast period must be less than slow period
 				}
 
-				params := internal.StrategyParams{
-					MACDFastPeriod:   fast,
-					MACDSlowPeriod:   slow,
-					MACDSignalPeriod: signal,
+				config := &MACDConfig{
+					FastPeriod:   fast,
+					SlowPeriod:   slow,
+					SignalPeriod: signal,
 				}
-				signals := generator(candles, params)
+				if config.Validate() != nil {
+					continue
+				}
+
+				signals := s.GenerateSignalsWithConfig(candles, config)
 				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 				if result.TotalProfit > bestProfit {
 					bestProfit = result.TotalProfit
-					bestParams = params
+					bestConfig = config
 				}
 			}
 		}
 	}
 
-	fmt.Printf("Лучшие параметры MACD: fast=%d, slow=%d, signal=%d\n",
-		bestParams.MACDFastPeriod, bestParams.MACDSlowPeriod, bestParams.MACDSignalPeriod)
+	fmt.Printf("Лучшие параметры SOLID MACD: fast=%d, slow=%d, signal=%d, профит=%.4f\n",
+		bestConfig.FastPeriod, bestConfig.SlowPeriod, bestConfig.SignalPeriod, bestProfit)
 
-	return bestParams
+	return bestConfig
 }
 
 func init() {

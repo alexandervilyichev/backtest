@@ -42,9 +42,30 @@ package trend
 
 import (
 	"bt/internal"
+	"errors"
 	"fmt"
 	"math"
 )
+
+type SupertrendConfig struct {
+	Period     int     `json:"period"`
+	Multiplier float64 `json:"multiplier"`
+}
+
+func (c *SupertrendConfig) Validate() error {
+	if c.Period <= 0 {
+		return errors.New("period must be positive")
+	}
+	if c.Multiplier <= 0 {
+		return errors.New("multiplier must be positive")
+	}
+	return nil
+}
+
+func (c *SupertrendConfig) DefaultConfigString() string {
+	return fmt.Sprintf("Supertrend(period=%d, mult=%.2f)",
+		c.Period, c.Multiplier)
+}
 
 type SuperTrendStrategy struct{}
 
@@ -209,35 +230,93 @@ func (s *SuperTrendStrategy) GenerateSignals(candles []internal.Candle, params i
 	return signals
 }
 
-func (s *SuperTrendStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		SuperTrendPeriod:     10,
-		SuperTrendMultiplier: 3.0,
+func (s *SuperTrendStrategy) DefaultConfig() internal.StrategyConfig {
+	return &SupertrendConfig{
+		Period:     10,
+		Multiplier: 3.0,
+	}
+}
+
+func (s *SuperTrendStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	stConfig, ok := config.(*SupertrendConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := stConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	superTrend, upTrend := calculateSuperTrend(candles, stConfig.Period, stConfig.Multiplier)
+	if superTrend == nil || upTrend == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	for i := stConfig.Period + 1; i < len(candles); i++ {
+		currentPrice := candles[i].Close.ToFloat64()
+		currentSuperTrend := superTrend[i]
+		currentTrend := upTrend[i]
+
+		prevPrice := candles[i-1].Close.ToFloat64()
+		prevSuperTrend := superTrend[i-1]
+		prevTrend := upTrend[i-1]
+
+		// BUY сигнал: цена пересекает SuperTrend снизу вверх
+		// Это происходит когда тренд меняется с нисходящего на восходящий
+		if !inPosition && !prevTrend && currentTrend && prevPrice <= prevSuperTrend && currentPrice > currentSuperTrend {
+			signals[i] = internal.BUY
+			inPosition = true
+			continue
+		}
+
+		// SELL сигнал: цена пересекает SuperTrend сверху вниз
+		// Это происходит когда тренд меняется с восходящего на нисходящий
+		if inPosition && prevTrend && !currentTrend && prevPrice >= prevSuperTrend && currentPrice < currentSuperTrend {
+			signals[i] = internal.SELL
+			inPosition = false
+			continue
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *SuperTrendStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &SupertrendConfig{
+		Period:     10,
+		Multiplier: 3.0,
 	}
 	bestProfit := -1.0
-
-	generator := s.GenerateSignals
 
 	// Grid search по параметрам
 	for period := 7; period <= 20; period += 1 {
 		for multiplier := 1.5; multiplier <= 4.0; multiplier += 0.25 {
-			params := internal.StrategyParams{
-				SuperTrendPeriod:     period,
-				SuperTrendMultiplier: multiplier,
+			config := &SupertrendConfig{
+				Period:     period,
+				Multiplier: multiplier,
 			}
-			signals := generator(candles, params)
+			if config.Validate() != nil {
+				continue
+			}
+
+			signals := s.GenerateSignalsWithConfig(candles, config)
 			result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 			if result.TotalProfit > bestProfit {
 				bestProfit = result.TotalProfit
-				bestParams = params
+				bestConfig = config
 			}
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SuperTrend: период=%d, множитель=%.2f, профит=%.4f\n",
-		bestParams.SuperTrendPeriod, bestParams.SuperTrendMultiplier, bestProfit)
+	fmt.Printf("Лучшие параметры SOLID Supertrend: period=%d, multiplier=%.2f, профит=%.4f\n",
+		bestConfig.Period, bestConfig.Multiplier, bestProfit)
 
-	return bestParams
+	return bestConfig
 }
 
 func init() {

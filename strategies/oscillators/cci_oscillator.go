@@ -42,9 +42,37 @@ package oscillators
 
 import (
 	"bt/internal"
+	"errors"
 	"fmt"
 	"math"
 )
+
+type CCIConfig struct {
+	Period    int     `json:"period"`
+	BuyLevel  float64 `json:"buy_level"`
+	SellLevel float64 `json:"sell_level"`
+}
+
+func (c *CCIConfig) Validate() error {
+	if c.Period <= 0 {
+		return errors.New("period must be positive")
+	}
+	if c.BuyLevel >= 0 {
+		return errors.New("buy level must be negative")
+	}
+	if c.SellLevel <= 0 {
+		return errors.New("sell level must be positive")
+	}
+	if c.BuyLevel >= c.SellLevel {
+		return errors.New("buy level must be less than sell level")
+	}
+	return nil
+}
+
+func (c *CCIConfig) DefaultConfigString() string {
+	return fmt.Sprintf("CCI(period=%d, buy_level=%.1f, sell_level=%.1f)",
+		c.Period, c.BuyLevel, c.SellLevel)
+}
 
 type CciOscillatorStrategy struct{}
 
@@ -158,6 +186,61 @@ func (s *CciOscillatorStrategy) GenerateSignals(candles []internal.Candle, param
 	return signals
 }
 
+func (s *CciOscillatorStrategy) DefaultConfig() internal.StrategyConfig {
+	return &CCIConfig{
+		Period:    20,
+		BuyLevel:  -100.0,
+		SellLevel: 100.0,
+	}
+}
+
+func (s *CciOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	cciConfig, ok := config.(*CCIConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := cciConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	cciValues := calculateCCI(candles, cciConfig.Period)
+	if cciValues == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	for i := cciConfig.Period; i < len(candles); i++ {
+		cci := cciValues[i]
+
+		// BUY: CCI ниже уровня перепроданности
+		if !inPosition && cci <= cciConfig.BuyLevel {
+			// Дополнительная проверка: цена должна расти или быть в боковике
+			if i > 0 && candles[i].Close.ToFloat64() >= candles[i-1].Close.ToFloat64() {
+				signals[i] = internal.BUY
+				inPosition = true
+				continue
+			}
+		}
+
+		// SELL: CCI выше уровня перекупленности
+		if inPosition && cci >= cciConfig.SellLevel {
+			// Дополнительная проверка: цена должна падать или быть в боковике
+			if i > 0 && candles[i].Close.ToFloat64() <= candles[i-1].Close.ToFloat64() {
+				signals[i] = internal.SELL
+				inPosition = false
+				continue
+			}
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
 func (s *CciOscillatorStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
 	bestParams := internal.StrategyParams{
 		CciPeriod:    20,
@@ -191,6 +274,43 @@ func (s *CciOscillatorStrategy) Optimize(candles []internal.Candle) internal.Str
 		bestParams.CciPeriod, bestParams.CciBuyLevel, bestParams.CciSellLevel, bestProfit)
 
 	return bestParams
+}
+
+func (s *CciOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &CCIConfig{
+		Period:    20,
+		BuyLevel:  -100.0,
+		SellLevel: 100.0,
+	}
+	bestProfit := -1.0
+
+	// Более широкий и детальный grid search
+	for period := 14; period <= 25; period += 1 {
+		for buy := -120.0; buy <= -80.0; buy += 5 {
+			for sell := 80.0; sell <= 120.0; sell += 5 {
+				config := &CCIConfig{
+					Period:    period,
+					BuyLevel:  buy,
+					SellLevel: sell,
+				}
+				if config.Validate() != nil {
+					continue
+				}
+
+				signals := s.GenerateSignalsWithConfig(candles, config)
+				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
+				if result.TotalProfit > bestProfit {
+					bestProfit = result.TotalProfit
+					bestConfig = config
+				}
+			}
+		}
+	}
+
+	fmt.Printf("Лучшие параметры CCI: период=%d, покупка=%.1f, продажа=%.1f, профит=%.4f\n",
+		bestConfig.Period, bestConfig.BuyLevel, bestConfig.SellLevel, bestProfit)
+
+	return bestConfig
 }
 
 func init() {

@@ -11,9 +11,38 @@ package strategies
 
 import (
 	"bt/internal"
+	"errors"
+	"fmt"
 	"log"
 	"math"
 )
+
+type ARIMAConfig struct {
+	ArOrder   int `json:"ar_order"`
+	DiffOrder int `json:"diff_order"`
+	MaOrder   int `json:"ma_order"`
+}
+
+func (c *ARIMAConfig) Validate() error {
+	if c.ArOrder < 0 {
+		return errors.New("ar order must be non-negative")
+	}
+	if c.DiffOrder < 0 {
+		return errors.New("diff order must be non-negative")
+	}
+	if c.MaOrder < 0 {
+		return errors.New("ma order must be non-negative")
+	}
+	if c.ArOrder+c.DiffOrder+c.MaOrder == 0 {
+		return errors.New("at least one parameter must be positive")
+	}
+	return nil
+}
+
+func (c *ARIMAConfig) DefaultConfigString() string {
+	return fmt.Sprintf("ARIMA(p=%d,d=%d,q=%d)",
+		c.ArOrder, c.DiffOrder, c.MaOrder)
+}
 
 // ARIMAModel — модель ARIMA
 type ARIMAModel struct {
@@ -505,8 +534,146 @@ func (s *ARIMAStrategy) generateEnhancedSignal(currentPrice, forecastPrice, thre
 	return internal.HOLD
 }
 
-func (s *ARIMAStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	return internal.StrategyParams{}
+func (s *ARIMAStrategy) DefaultConfig() internal.StrategyConfig {
+	return &ARIMAConfig{
+		ArOrder:   3,
+		DiffOrder: 1,
+		MaOrder:   0,
+	}
+}
+
+func (s *ARIMAStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	arimaConfig, ok := config.(*ARIMAConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := arimaConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if len(candles) < 100 {
+		log.Printf("⚠️ Недостаточно данных для улучшенной ARIMA: получено %d свечей, требуется минимум 100", len(candles))
+		return make([]internal.SignalType, len(candles))
+	}
+
+	// Извлекаем ценовые данные
+	prices := make([]float64, len(candles))
+	for i, candle := range candles {
+		prices[i] = candle.Close.ToFloat64()
+	}
+
+	// Параметры модели из конфига
+	arOrder := arimaConfig.ArOrder
+	diffOrder := arimaConfig.DiffOrder
+	maOrder := arimaConfig.MaOrder
+
+	// Окно обучения
+	windowSize := 300
+	baseThreshold := 0.005 // 0.5%
+
+	log.Printf("🚀 ЗАПУСК УЛУЧШЕННОЙ ARIMA СТРАТЕГИИ:")
+	log.Printf("   Параметры: AR(%d,%d,%d)", arOrder, diffOrder, maOrder)
+	log.Printf("   Окно обучения: %d свечей", windowSize)
+	log.Printf("   Базовый порог: %.2f%%", baseThreshold*100)
+
+	// Генерируем сигналы с использованием улучшенной логики
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+	minHoldBars := 150
+	lastTradeIndex := -minHoldBars
+
+	// Начинаем прогнозирование после достаточного количества данных
+	minTrainSize := windowSize + 50
+
+	configModel := func(wdata []float64) *ARIMAModel {
+		model := NewARIMAModel(arOrder, diffOrder, maOrder)
+		model.train(wdata)
+		return model
+	}
+
+	for i := minTrainSize; i < len(candles); i++ {
+		// Rolling window
+		windowStart := i - windowSize
+		if windowStart < 0 {
+			windowStart = 0
+		}
+		windowData := prices[windowStart:i]
+
+		// Обучение на окне
+		model := configModel(windowData)
+
+		// Валидация
+		if !s.validateModel(model, windowData) {
+			signals[i] = internal.HOLD
+			continue
+		}
+
+		// Прогноз (корректный: AR на стационарном ряду + обратное дифференцирование)
+		forecast := model.forecast(windowData)
+		currentPrice := prices[i]
+
+		// Адаптивный порог
+		volatility := internal.CalculateStdDevOfReturns(prices[intMax(0, i-50):i])
+		adaptiveThreshold := baseThreshold + volatility*0.5
+
+		// Сигнал
+		signal := s.generateEnhancedSignal(currentPrice, forecast, adaptiveThreshold, prices, i)
+
+		// Фильтр тренда
+		trendStrength := s.calculateTrendStrength(prices[intMax(0, i-20):i])
+		trendThreshold := 0.02
+
+		if !inPosition && signal == internal.BUY && trendStrength > -trendThreshold && i-lastTradeIndex >= minHoldBars {
+			signals[i] = internal.BUY
+			inPosition = true
+			lastTradeIndex = i
+		} else if inPosition && signal == internal.SELL && trendStrength < trendThreshold && i-lastTradeIndex >= minHoldBars {
+			signals[i] = internal.SELL
+			inPosition = false
+			lastTradeIndex = i
+		} else {
+			signals[i] = internal.HOLD
+		}
+	}
+
+	log.Printf("✅ Улучшенный ARIMA анализ завершен")
+	return signals
+}
+
+func (s *ARIMAStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &ARIMAConfig{
+		ArOrder:   3,
+		DiffOrder: 1,
+		MaOrder:   0,
+	}
+	bestProfit := -1.0
+
+	// Оптимизируем параметры ARIMA
+	for arOrder := 1; arOrder <= 5; arOrder++ {
+		for diffOrder := 0; diffOrder <= 2; diffOrder++ {
+			config := &ARIMAConfig{
+				ArOrder:   arOrder,
+				DiffOrder: diffOrder,
+				MaOrder:   0, // MA отключена для простоты
+			}
+			if config.Validate() != nil {
+				continue
+			}
+
+			signals := s.GenerateSignalsWithConfig(candles, config)
+			result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
+			if result.TotalProfit > bestProfit {
+				bestProfit = result.TotalProfit
+				bestConfig = config
+			}
+		}
+	}
+
+	fmt.Printf("Лучшие параметры SOLID ARIMA: p=%d,d=%d,q=%d, профит=%.4f\n",
+		bestConfig.ArOrder, bestConfig.DiffOrder, bestConfig.MaOrder, bestProfit)
+
+	return bestConfig
 }
 
 // вспомогательная функция для int max

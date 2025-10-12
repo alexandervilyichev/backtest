@@ -40,9 +40,30 @@ package volatility
 
 import (
 	"bt/internal"
+	"errors"
 	"fmt"
 	"math"
 )
+
+type BollingerBandsConfig struct {
+	Period     int     `json:"period"`
+	Multiplier float64 `json:"multiplier"`
+}
+
+func (c *BollingerBandsConfig) Validate() error {
+	if c.Period <= 0 {
+		return errors.New("period must be positive")
+	}
+	if c.Multiplier <= 0 {
+		return errors.New("multiplier must be positive")
+	}
+	return nil
+}
+
+func (c *BollingerBandsConfig) DefaultConfigString() string {
+	return fmt.Sprintf("BBands(period=%d, mult=%.2f)",
+		c.Period, c.Multiplier)
+}
 
 type BollingerBandsStrategy struct{}
 
@@ -192,35 +213,97 @@ func (s *BollingerBandsStrategy) GenerateSignals(candles []internal.Candle, para
 	return signals
 }
 
-func (s *BollingerBandsStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		BollingerBandsPeriod:     20,
-		BollingerBandsMultiplier: 2.0,
+func (s *BollingerBandsStrategy) DefaultConfig() internal.StrategyConfig {
+	return &BollingerBandsConfig{
+		Period:     20,
+		Multiplier: 2.0,
+	}
+}
+
+func (s *BollingerBandsStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	bbConfig, ok := config.(*BollingerBandsConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := bbConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	upper, _, lower := calculateBollingerBands(candles, bbConfig.Period, bbConfig.Multiplier)
+	if upper == nil || lower == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	for i := bbConfig.Period; i < len(candles); i++ {
+		currentPrice := candles[i].Close.ToFloat64()
+		currentLower := lower[i]
+		currentUpper := upper[i]
+
+		// Получаем предыдущие значения для обнаружения пересечений
+		var prevPrice, prevLower, prevUpper float64
+		if i > 0 {
+			prevPrice = candles[i-1].Close.ToFloat64()
+			if i-1 < len(lower) && i-1 < len(upper) {
+				prevLower = lower[i-1]
+				prevUpper = upper[i-1]
+			}
+		}
+
+		// BUY: цена пересекает нижнюю полосу снизу вверх
+		if !inPosition && prevPrice <= prevLower && currentPrice > currentLower {
+			signals[i] = internal.BUY
+			inPosition = true
+			continue
+		}
+
+		// SELL: цена пересекает верхнюю полосу сверху вниз
+		if inPosition && prevPrice >= prevUpper && currentPrice < currentUpper {
+			signals[i] = internal.SELL
+			inPosition = false
+			continue
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *BollingerBandsStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &BollingerBandsConfig{
+		Period:     20,
+		Multiplier: 2.0,
 	}
 	bestProfit := -1.0
-
-	generator := s.GenerateSignals
 
 	// Grid search по параметрам
 	for period := 10; period <= 50; period += 5 {
 		for multiplier := 1.5; multiplier <= 3.0; multiplier += 0.25 {
-			params := internal.StrategyParams{
-				BollingerBandsPeriod:     period,
-				BollingerBandsMultiplier: multiplier,
+			config := &BollingerBandsConfig{
+				Period:     period,
+				Multiplier: multiplier,
 			}
-			signals := generator(candles, params)
+			if config.Validate() != nil {
+				continue
+			}
+
+			signals := s.GenerateSignalsWithConfig(candles, config)
 			result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 			if result.TotalProfit > bestProfit {
 				bestProfit = result.TotalProfit
-				bestParams = params
+				bestConfig = config
 			}
 		}
 	}
 
-	fmt.Printf("Лучшие параметры Bollinger Bands: период=%d, множитель=%.2f, профит=%.4f\n",
-		bestParams.BollingerBandsPeriod, bestParams.BollingerBandsMultiplier, bestProfit)
+	fmt.Printf("Лучшие параметры SOLID Bollinger Bands: period=%d, multiplier=%.2f, профит=%.4f\n",
+		bestConfig.Period, bestConfig.Multiplier, bestProfit)
 
-	return bestParams
+	return bestConfig
 }
 
 func init() {

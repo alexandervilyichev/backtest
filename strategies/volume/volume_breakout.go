@@ -40,9 +40,25 @@ package volume
 
 import (
 	"bt/internal"
-	"log"
-	"strconv"
+	"errors"
+	"fmt"
 )
+
+type VolumeBreakoutConfig struct {
+	Multiplier float64 `json:"multiplier"`
+}
+
+func (c *VolumeBreakoutConfig) Validate() error {
+	if c.Multiplier <= 1.0 {
+		return errors.New("multiplier must be greater than 1.0")
+	}
+	return nil
+}
+
+func (c *VolumeBreakoutConfig) DefaultConfigString() string {
+	return fmt.Sprintf("VolumeBreakout(mult=%.2f)",
+		c.Multiplier)
+}
 
 type VolumeBreakoutStrategy struct{}
 
@@ -68,20 +84,12 @@ func (s *VolumeBreakoutStrategy) GenerateSignals(candles []internal.Candle, para
 
 		var totalVolume float64
 		for j := i - 3; j < i; j++ {
-			vol, err := strconv.ParseFloat(candles[j].Volume, 64)
-			if err != nil {
-				log.Printf("Предупреждение: некорректный объем на свече %d: %s, используем 0", j, candles[j].Volume)
-				vol = 0
-			}
+			vol := candles[j].VolumeFloat // используем предвычисленное значение
 			totalVolume += vol
 		}
 		avgVolume := totalVolume / 3.0
 
-		currentVol, err := strconv.ParseFloat(candles[i].Volume, 64)
-		if err != nil {
-			log.Printf("Предупреждение: некорректный объем на свече %d: %s, используем 0", i, candles[i].Volume)
-			currentVol = 0
-		}
+		currentVol := candles[i].VolumeFloat // используем предвычисленное значение
 
 		openPrice := candles[i].Open.ToFloat64()
 		closePrice := candles[i].Close.ToFloat64()
@@ -106,23 +114,89 @@ func (s *VolumeBreakoutStrategy) GenerateSignals(candles []internal.Candle, para
 	return signals
 }
 
-func (s *VolumeBreakoutStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{VolumeMultiplier: 1.2}
+func (s *VolumeBreakoutStrategy) DefaultConfig() internal.StrategyConfig {
+	return &VolumeBreakoutConfig{
+		Multiplier: 1.5,
+	}
+}
+
+func (s *VolumeBreakoutStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	vbConfig, ok := config.(*VolumeBreakoutConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := vbConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	for i := range candles {
+		if i < 3 {
+			signals[i] = internal.HOLD
+			continue
+		}
+
+		var totalVolume float64
+		for j := i - 3; j < i; j++ {
+			vol := candles[j].VolumeFloat // используем предвычисленное значение
+			totalVolume += vol
+		}
+		avgVolume := totalVolume / 3.0
+
+		currentVol := candles[i].VolumeFloat // используем предвычисленное значение
+
+		openPrice := candles[i].Open.ToFloat64()
+		closePrice := candles[i].Close.ToFloat64()
+
+		// BUY: зеленая свеча с высоким объемом
+		if !inPosition && closePrice > openPrice && currentVol > avgVolume*vbConfig.Multiplier {
+			signals[i] = internal.BUY
+			inPosition = true
+			continue
+		}
+
+		// SELL: красная свеча или достижение цели
+		if inPosition && (closePrice < openPrice || currentVol > avgVolume*vbConfig.Multiplier*2) {
+			signals[i] = internal.SELL
+			inPosition = false
+			continue
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *VolumeBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &VolumeBreakoutConfig{
+		Multiplier: 1.5,
+	}
 	bestProfit := -1.0
 
-	generator := s.GenerateSignals
-
 	for mult := 1.0; mult <= 3.0; mult += 0.1 {
-		params := internal.StrategyParams{VolumeMultiplier: mult}
-		signals := generator(candles, params)
+		config := &VolumeBreakoutConfig{
+			Multiplier: mult,
+		}
+		if config.Validate() != nil {
+			continue
+		}
+
+		signals := s.GenerateSignalsWithConfig(candles, config)
 		result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 		if result.TotalProfit > bestProfit {
 			bestProfit = result.TotalProfit
-			bestParams = params
+			bestConfig = config
 		}
 	}
 
-	return bestParams
+	fmt.Printf("Лучшие параметры SOLID Volume Breakout: multiplier=%.2f, профит=%.4f\n",
+		bestConfig.Multiplier, bestProfit)
+
+	return bestConfig
 }
 
 func init() {

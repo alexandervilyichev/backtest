@@ -39,8 +39,30 @@ package oscillators
 
 import (
 	"bt/internal"
+	"errors"
 	"fmt"
 )
+
+type RSIConfig struct {
+	Period        int     `json:"period"`
+	BuyThreshold  float64 `json:"buy_threshold"`
+	SellThreshold float64 `json:"sell_threshold"`
+}
+
+func (c *RSIConfig) Validate() error {
+	if c.Period <= 0 {
+		return errors.New("period must be positive")
+	}
+	if c.BuyThreshold >= c.SellThreshold {
+		return errors.New("buy threshold must be less than sell threshold")
+	}
+	return nil
+}
+
+func (c *RSIConfig) DefaultConfigString() string {
+	return fmt.Sprintf("RSI(period=%d, buy_thresh=%.1f, sell_thresh=%.1f)",
+		c.Period, c.BuyThreshold, c.SellThreshold)
+}
 
 type RsiOscillatorStrategy struct{}
 
@@ -125,6 +147,90 @@ func (s *RsiOscillatorStrategy) Optimize(candles []internal.Candle) internal.Str
 	fmt.Printf("Лучшие параметры %d %f %f\n", bestParams.RsiPeriod, bestParams.RsiBuyThreshold, bestParams.RsiSellThreshold)
 
 	return bestParams
+}
+
+func (s *RsiOscillatorStrategy) DefaultConfig() internal.StrategyConfig {
+	return &RSIConfig{
+		Period:        14,
+		BuyThreshold:  30.0,
+		SellThreshold: 70.0,
+	}
+}
+
+func (s *RsiOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	rsiConfig, ok := config.(*RSIConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := rsiConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	rsiValues := internal.CalculateRSICommon(candles, rsiConfig.Period)
+	if rsiValues == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	for i := rsiConfig.Period; i < len(candles); i++ {
+		rsi := rsiValues[i]
+
+		if !inPosition && rsi < rsiConfig.BuyThreshold {
+			signals[i] = internal.BUY
+			inPosition = true
+			continue
+		}
+
+		if inPosition && rsi > rsiConfig.SellThreshold {
+			signals[i] = internal.SELL
+			inPosition = false
+			continue
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *RsiOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &RSIConfig{
+		Period:        14,
+		BuyThreshold:  30.0,
+		SellThreshold: 70.0,
+	}
+	bestProfit := -1.0
+
+	// Простой grid search по порогам
+	for period := 10; period <= 20; period += 1 {
+		for buyThresh := 10.0; buyThresh <= 35.0; buyThresh += 1 {
+			for sellThresh := 65.0; sellThresh <= 80.0; sellThresh += 1 {
+				config := &RSIConfig{
+					Period:        period,
+					BuyThreshold:  buyThresh,
+					SellThreshold: sellThresh,
+				}
+				if config.Validate() != nil {
+					continue
+				}
+
+				signals := s.GenerateSignalsWithConfig(candles, config)
+				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
+				if result.TotalProfit > bestProfit {
+					bestProfit = result.TotalProfit
+					bestConfig = config
+				}
+			}
+		}
+	}
+
+	fmt.Printf("Лучшие параметры SOLID RSI: период=%d, покупка=%.1f, продажа=%.1f, профит=%.4f\n",
+		bestConfig.Period, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)
+
+	return bestConfig
 }
 
 func init() {

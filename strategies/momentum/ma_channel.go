@@ -42,8 +42,36 @@ package momentum
 
 import (
 	"bt/internal"
+	"errors"
 	"fmt"
 )
+
+type MAChannelConfig struct {
+	FastPeriod int     `json:"fast_period"`
+	SlowPeriod int     `json:"slow_period"`
+	Multiplier float64 `json:"multiplier"`
+}
+
+func (c *MAChannelConfig) Validate() error {
+	if c.FastPeriod <= 0 {
+		return errors.New("fast period must be positive")
+	}
+	if c.SlowPeriod <= 0 {
+		return errors.New("slow period must be positive")
+	}
+	if c.Multiplier <= 0 {
+		return errors.New("multiplier must be positive")
+	}
+	if c.FastPeriod >= c.SlowPeriod {
+		return errors.New("fast period must be less than slow period")
+	}
+	return nil
+}
+
+func (c *MAChannelConfig) DefaultConfigString() string {
+	return fmt.Sprintf("MAChannel(fast=%d, slow=%d, mult=%.2f)",
+		c.FastPeriod, c.SlowPeriod, c.Multiplier)
+}
 
 type MAChannelStrategy struct{}
 
@@ -106,15 +134,71 @@ func (s *MAChannelStrategy) GenerateSignals(candles []internal.Candle, params in
 	return signals
 }
 
-func (s *MAChannelStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		MAChannelFastPeriod: 10,
-		MAChannelSlowPeriod: 20,
-		MAChannelMultiplier: 1.0,
+func (s *MAChannelStrategy) DefaultConfig() internal.StrategyConfig {
+	return &MAChannelConfig{
+		FastPeriod: 10,
+		SlowPeriod: 20,
+		Multiplier: 1.0,
+	}
+}
+
+func (s *MAChannelStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	maConfig, ok := config.(*MAChannelConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := maConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	upperChannel, lowerChannel := internal.CalculateMAChannel(candles, maConfig.FastPeriod, maConfig.SlowPeriod, maConfig.Multiplier)
+	if upperChannel == nil || lowerChannel == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	for i := maConfig.SlowPeriod; i < len(candles); i++ {
+		closePrice := candles[i].Close.ToFloat64()
+		upper := upperChannel[i]
+		lower := lowerChannel[i]
+
+		if upper == 0 || lower == 0 {
+			signals[i] = internal.HOLD
+			continue
+		}
+
+		if !inPosition {
+			// Buy when price breaks above upper channel
+			if closePrice > upper {
+				signals[i] = internal.BUY
+				inPosition = true
+				continue
+			}
+		} else {
+			// Sell when price breaks below lower channel
+			if closePrice < lower {
+				signals[i] = internal.SELL
+				inPosition = false
+				continue
+			}
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *MAChannelStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &MAChannelConfig{
+		FastPeriod: 10,
+		SlowPeriod: 20,
+		Multiplier: 1.0,
 	}
 	bestProfit := -1.0
-
-	generator := s.GenerateSignals
 
 	// Grid search по параметрам
 	for fast := 5; fast <= 15; fast += 2 {
@@ -124,27 +208,31 @@ func (s *MAChannelStrategy) Optimize(candles []internal.Candle) internal.Strateg
 					continue // fast period must be less than slow period
 				}
 
-				params := internal.StrategyParams{
-					MAChannelFastPeriod: fast,
-					MAChannelSlowPeriod: slow,
-					MAChannelMultiplier: mult,
+				config := &MAChannelConfig{
+					FastPeriod: fast,
+					SlowPeriod: slow,
+					Multiplier: mult,
 				}
-				signals := generator(candles, params)
+				if config.Validate() != nil {
+					continue
+				}
+
+				signals := s.GenerateSignalsWithConfig(candles, config)
 				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 				if result.TotalProfit > bestProfit {
 					bestProfit = result.TotalProfit
-					bestParams = params
+					bestConfig = config
 				}
 			}
 		}
 	}
 
-	fmt.Printf("Лучшие параметры MA Channel: fast=%d, slow=%d, multiplier=%.2f\n",
-		bestParams.MAChannelFastPeriod, bestParams.MAChannelSlowPeriod, bestParams.MAChannelMultiplier)
+	fmt.Printf("Лучшие параметры SOLID MA Channel: fast=%d, slow=%d, multiplier=%.2f, профит=%.4f\n",
+		bestConfig.FastPeriod, bestConfig.SlowPeriod, bestConfig.Multiplier, bestProfit)
 
-	return bestParams
+	return bestConfig
 }
 
 func init() {
-	// internal.RegisterStrategy("ma_channel", &MAChannelStrategy{})
+	internal.RegisterStrategy("ma_channel", &MAChannelStrategy{})
 }

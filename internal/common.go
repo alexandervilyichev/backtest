@@ -12,10 +12,7 @@ import (
 	"sync"
 )
 
-var smaCache sync.Map
-var rsiCache sync.Map
-var rmCache sync.Map
-var rstdCache sync.Map
+var Cache sync.Map
 
 func keyFor(typeAlgo string, typeInput string, period int) string {
 	var buf bytes.Buffer
@@ -53,7 +50,7 @@ func CalculateSMACommon(candles []Candle, period int) []float64 {
 // calculateRSICommon вычисляет RSI
 func CalculateRSICommon(candles []Candle, period int) []float64 {
 	key := keyFor("RSI", "candles", period)
-	if cached, ok := rsiCache.Load(key); ok {
+	if cached, ok := Cache.Load(key); ok {
 		return cached.([]float64)
 	}
 
@@ -111,7 +108,7 @@ func CalculateRSICommon(candles []Candle, period int) []float64 {
 		}
 	}
 
-	rsiCache.Store(key, rsi)
+	Cache.Store(key, rsi)
 	return rsi
 }
 
@@ -130,7 +127,7 @@ func avgCommon(xs []float64) float64 {
 // calculateRollingMin вычисляет скользящий минимум
 func CalculateRollingMin(candles []Candle, period int) []float64 {
 	key := keyFor("RMin", "candles", period)
-	if cached, ok := rmCache.Load(key); ok {
+	if cached, ok := Cache.Load(key); ok {
 		return cached.([]float64)
 	}
 
@@ -153,7 +150,7 @@ func CalculateRollingMin(candles []Candle, period int) []float64 {
 		minValues[i] = min
 	}
 
-	rmCache.Store(key, minValues)
+	Cache.Store(key, minValues)
 	return minValues
 }
 
@@ -222,7 +219,7 @@ func CalculateStochastic(candles []Candle, kPeriod, dPeriod int) ([]float64, []f
 // calculateSMACommonForValues вычисляет SMA для массива значений
 func CalculateSMACommonForValues(values []float64, period int) []float64 {
 	key := keyFor("SMA", "values", period)
-	if cached, ok := smaCache.Load(key); ok {
+	if cached, ok := Cache.Load(key); ok {
 		return cached.([]float64)
 	}
 
@@ -243,8 +240,55 @@ func CalculateSMACommonForValues(values []float64, period int) []float64 {
 		sma[i] = sum / float64(period)
 	}
 
-	smaCache.Store(key, sma)
+	Cache.Store(key, sma)
 	return sma
+}
+
+// calculateVolatilityQstick рассчитывает волатильность цены за период
+func CalculateVolatilityQstick(candles []Candle, period int) []float64 {
+	key := keyFor("VolatilityQStick", "candles", period)
+	if cached, ok := Cache.Load(key); ok {
+		return cached.([]float64)
+	}
+
+	if len(candles) < period {
+		return nil
+	}
+
+	volatility := make([]float64, len(candles))
+
+	// Первые period-1 значений — не определены
+	for i := 0; i < period-1; i++ {
+		volatility[i] = 0
+	}
+
+	for i := period - 1; i < len(candles); i++ {
+		prices := make([]float64, period)
+
+		// Собираем цены закрытия за период
+		for j := i - period + 1; j <= i; j++ {
+			prices[j-(i-period+1)] = candles[j].Close.ToFloat64()
+		}
+
+		// Рассчитываем среднюю цену
+		var mean float64
+		for _, price := range prices {
+			mean += price
+		}
+		mean /= float64(period)
+
+		// Рассчитываем дисперсию
+		var variance float64
+		for _, price := range prices {
+			variance += (price - mean) * (price - mean)
+		}
+		variance /= float64(period)
+
+		volatility[i] = variance
+	}
+
+	Cache.Store(key, volatility)
+	return volatility
 }
 
 // calculateEMA вычисляет экспоненциальную скользящую среднюю
@@ -485,7 +529,7 @@ func calculateMeanStd(data []float64) (float64, float64) {
 // CalculateRollingStdDevOfReturns вычисляет скользящую волатильность как стандартное отклонение доходностей
 func CalculateRollingStdDevOfReturns(prices []float64, period int) []float64 {
 	key := keyFor("Rstd", "values", period)
-	if cached, ok := rstdCache.Load(key); ok {
+	if cached, ok := Cache.Load(key); ok {
 		return cached.([]float64)
 	}
 
@@ -506,7 +550,7 @@ func CalculateRollingStdDevOfReturns(prices []float64, period int) []float64 {
 		}
 	}
 
-	rstdCache.Store(key, volatility)
+	Cache.Store(key, volatility)
 	return volatility
 }
 

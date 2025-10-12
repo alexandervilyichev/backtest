@@ -38,9 +38,30 @@ package volume
 
 import (
 	"bt/internal"
-	"log"
-	"strconv"
+	"errors"
+	"fmt"
 )
+
+type OBVConfig struct {
+	Period        int     `json:"period"`
+	Multiplier    float64 `json:"multiplier"`
+	UseDivergence bool    `json:"use_divergence"`
+}
+
+func (c *OBVConfig) Validate() error {
+	if c.Period <= 0 {
+		return errors.New("period must be positive")
+	}
+	if c.Multiplier <= 0 {
+		return errors.New("multiplier must be positive")
+	}
+	return nil
+}
+
+func (c *OBVConfig) DefaultConfigString() string {
+	return fmt.Sprintf("OBV(period=%d, mult=%.2f, div=%t)",
+		c.Period, c.Multiplier, c.UseDivergence)
+}
 
 type OBVStrategy struct{}
 
@@ -58,11 +79,7 @@ func calculateOBV(candles []internal.Candle) []float64 {
 	obv[0] = 0
 
 	for i := 1; i < len(candles); i++ {
-		currentVol, err := strconv.ParseFloat(candles[i].Volume, 64)
-		if err != nil {
-			log.Printf("Предупреждение: некорректный объем на свече %d: %s, используем 0", i, candles[i].Volume)
-			currentVol = 0
-		}
+		currentVol := candles[i].VolumeFloat // используем предвычисленное значение
 
 		currentClose := candles[i].Close.ToFloat64()
 		previousClose := candles[i-1].Close.ToFloat64()
@@ -198,15 +215,93 @@ func (s *OBVStrategy) GenerateSignals(candles []internal.Candle, params internal
 	return signals
 }
 
-func (s *OBVStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		OBVPeriod:     10,
-		OBVMultiplier: 1.0,
+func (s *OBVStrategy) DefaultConfig() internal.StrategyConfig {
+	return &OBVConfig{
+		Period:        20,
+		Multiplier:    1.0,
+		UseDivergence: false,
+	}
+}
+
+func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	obvConfig, ok := config.(*OBVConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := obvConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	for i := range candles {
+		if i < 2 {
+			signals[i] = internal.HOLD
+			continue
+		}
+
+		// Рассчитываем OBV для текущего момента
+		obv := calculateOBV(candles[:i+1])
+		if len(obv) < 2 {
+			signals[i] = internal.HOLD
+			continue
+		}
+
+		currentOBV := obv[len(obv)-1]
+		previousOBV := obv[len(obv)-2]
+
+		currentPrice := candles[i].Close.ToFloat64()
+		previousPrice := candles[i-1].Close.ToFloat64()
+
+		// Проверяем дивергенции если включены
+		var bullishDiv, bearishDiv bool
+		if obvConfig.UseDivergence && i >= obvConfig.Period {
+			bullishDiv, bearishDiv = detectOBVDivergence(candles[:i+1], obv, obvConfig.Period)
+		}
+
+		// BUY сигналы:
+		// 1. OBV растет и цена растет (подтверждение тренда)
+		// 2. Бычья дивергенция
+		// 3. OBV значительно вырос (мультипликатор)
+		buySignal := (!inPosition && currentOBV > previousOBV && currentPrice > previousPrice) ||
+			(!inPosition && bullishDiv) ||
+			(!inPosition && currentOBV > previousOBV*obvConfig.Multiplier)
+
+		if buySignal {
+			signals[i] = internal.BUY
+			inPosition = true
+			continue
+		}
+
+		// SELL сигналы:
+		// 1. OBV падает
+		// 2. Медвежья дивергенция
+		// 3. Цена падает значительно
+		sellSignal := (inPosition && currentOBV < previousOBV) ||
+			(inPosition && bearishDiv) ||
+			(inPosition && currentPrice < previousPrice*0.98) // 2% падение цены
+
+		if sellSignal {
+			signals[i] = internal.SELL
+			inPosition = false
+			continue
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *OBVStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &OBVConfig{
+		Period:        10,
+		Multiplier:    1.0,
 		UseDivergence: false,
 	}
 	bestProfit := -1.0
-
-	generator := s.GenerateSignals
 
 	// Оптимизируем период OBV
 	for period := 5; period <= 50; period += 5 {
@@ -214,26 +309,32 @@ func (s *OBVStrategy) Optimize(candles []internal.Candle) internal.StrategyParam
 		for mult := 1.0; mult <= 2.0; mult += 0.1 {
 			// Оптимизируем использование дивергенций
 			for useDiv := 0; useDiv <= 1; useDiv++ {
-				params := internal.StrategyParams{
-					OBVPeriod:     period,
-					OBVMultiplier: mult,
+				config := &OBVConfig{
+					Period:        period,
+					Multiplier:    mult,
 					UseDivergence: useDiv == 1,
 				}
+				if config.Validate() != nil {
+					continue
+				}
 
-				signals := generator(candles, params)
+				signals := s.GenerateSignalsWithConfig(candles, config)
 				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 
 				if result.TotalProfit > bestProfit {
 					bestProfit = result.TotalProfit
-					bestParams = params
+					bestConfig = config
 				}
 			}
 		}
 	}
 
-	return bestParams
+	fmt.Printf("Лучшие параметры SOLID OBV: period=%d, multiplier=%.2f, use_div=%t, профит=%.4f\n",
+		bestConfig.Period, bestConfig.Multiplier, bestConfig.UseDivergence, bestProfit)
+
+	return bestConfig
 }
 
 func init() {
-	// internal.RegisterStrategy("obv_strategy", &OBVStrategy{})
+	internal.RegisterStrategy("obv_strategy", &OBVStrategy{})
 }

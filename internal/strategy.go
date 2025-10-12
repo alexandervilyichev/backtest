@@ -1,7 +1,15 @@
 // strategy.go
 package internal
 
-import "log"
+import (
+	"log"
+)
+
+// StrategyConfig defines the interface for strategy configuration
+type StrategyConfig interface {
+	Validate() error
+	DefaultConfigString() string
+}
 
 type StrategyParams struct {
 	VolumeMultiplier          float64
@@ -63,8 +71,20 @@ type StrategyParams struct {
 
 type Strategy interface {
 	Name() string
-	GenerateSignals(candles []Candle, params StrategyParams) []SignalType
-	Optimize(candles []Candle) StrategyParams
+}
+
+// New SOLID architecture interfaces - will replace StrategyParams eventually
+type SolidStrategy interface {
+	Name() string
+	DefaultConfig() StrategyConfig
+	GenerateSignalsWithConfig(candles []Candle, config StrategyConfig) []SignalType
+	OptimizeWithConfig(candles []Candle) StrategyConfig
+}
+
+// Backward compatibility interface during transition
+type TransitionalStrategy interface {
+	Strategy
+	SolidStrategy
 }
 
 var strategies = make(map[string]Strategy)

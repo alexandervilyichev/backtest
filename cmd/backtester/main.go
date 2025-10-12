@@ -46,14 +46,27 @@ func LoadCandlesFromFile(filename string) []internal.Candle {
 		log.Fatal("❌ Ошибка парсинга JSON:", err)
 	}
 
-	// Precompute ParsedTime to optimize ToTime() calls
+	// Precompute ParsedTime to optimize ToTime() calls for better performance
+	// Handle empty time strings gracefully to avoid parsing errors
 	for i := range wrapper.Candles {
-		// Compute and store time.Time
-		t, err := time.Parse(time.RFC3339, wrapper.Candles[i].Time)
-		if err != nil {
-			log.Fatal("❌ Ошибка парсинга времени:", wrapper.Candles[i].Time, err)
+		if wrapper.Candles[i].Time != "" {
+			// Compute and store time.Time with multiple format fallbacks
+			t, err := time.Parse(time.RFC3339, wrapper.Candles[i].Time)
+			if err != nil {
+				// Try RFC3339Nano format
+				t, err = time.Parse(time.RFC3339Nano, wrapper.Candles[i].Time)
+				if err != nil {
+					// Try format without timezone
+					t, err = time.Parse("2006-01-02T15:04:05", wrapper.Candles[i].Time)
+					if err != nil {
+						log.Printf("❌ Все форматы времени провалились для: '%s', используем zero time", wrapper.Candles[i].Time)
+						t = time.Time{} // Use zero time for invalid formats
+					}
+				}
+			}
+			wrapper.Candles[i].ParsedTime = t
 		}
-		wrapper.Candles[i].ParsedTime = t
+		// If Time is empty, ParsedTime remains as zero time (already set by UnmarshalJSON)
 	}
 
 	sort.Slice(wrapper.Candles, func(i, j int) bool {
@@ -169,8 +182,15 @@ func runStrategies(config backtester.Config, runner backtester.StrategyRunner, c
 
 	// Добавляем Buy & Hold как бенчмарк
 	bnhStrategy := internal.GetStrategy("buy_and_hold")
-	bnhSignals := bnhStrategy.GenerateSignals(candles, internal.StrategyParams{})
-	bnhResult := internal.Backtest(candles, bnhSignals, 0.01)
+	var bnhResult internal.BacktestResult
+	if bnhSolidStrategy, ok := bnhStrategy.(internal.SolidStrategy); ok {
+		bnhConfig := bnhSolidStrategy.DefaultConfig()
+		bnhSignals := bnhSolidStrategy.GenerateSignalsWithConfig(candles, bnhConfig)
+		bnhResult = internal.Backtest(candles, bnhSignals, 0.01)
+	} else {
+		fmt.Println("⚠️  Buy & Hold не поддерживает SOLID архитектуру")
+		bnhResult = internal.BacktestResult{} // Empty result if not SOLID compatible
+	}
 
 	results := []backtester.BenchmarkResult{
 		*mainResult,

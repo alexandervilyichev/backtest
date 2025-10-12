@@ -39,8 +39,37 @@ package moving_averages
 
 import (
 	"bt/internal"
+	"errors"
 	"fmt"
 )
+
+type MAEmaCorrelationConfig struct {
+	MAPeriod  int     `json:"ma_period"`
+	EMAPeriod int     `json:"ema_period"`
+	Lookback  int     `json:"lookback"`
+	Threshold float64 `json:"threshold"`
+}
+
+func (c *MAEmaCorrelationConfig) Validate() error {
+	if c.MAPeriod <= 0 {
+		return errors.New("ma period must be positive")
+	}
+	if c.EMAPeriod <= 0 {
+		return errors.New("ema period must be positive")
+	}
+	if c.Lookback <= 0 {
+		return errors.New("lookback must be positive")
+	}
+	if c.Threshold <= 0 || c.Threshold >= 1.0 {
+		return errors.New("threshold must be between 0 and 1.0")
+	}
+	return nil
+}
+
+func (c *MAEmaCorrelationConfig) DefaultConfigString() string {
+	return fmt.Sprintf("MAEmaCorr(ma=%d, ema=%d, lookbk=%d, thresh=%.2f)",
+		c.MAPeriod, c.EMAPeriod, c.Lookback, c.Threshold)
+}
 
 type MaEmaCorrelationStrategy struct{}
 
@@ -117,44 +146,113 @@ func (s *MaEmaCorrelationStrategy) GenerateSignals(candles []internal.Candle, pa
 	return signals
 }
 
-func (s *MaEmaCorrelationStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		MaEmaCorrelationMAPeriod:  20,
-		MaEmaCorrelationEMAPeriod: 20,
-		MaEmaCorrelationLookback:  10,
-		MaEmaCorrelationThreshold: 0.7,
+func (s *MaEmaCorrelationStrategy) DefaultConfig() internal.StrategyConfig {
+	return &MAEmaCorrelationConfig{
+		MAPeriod:  20,
+		EMAPeriod: 20,
+		Lookback:  10,
+		Threshold: 0.7,
+	}
+}
+
+func (s *MaEmaCorrelationStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	maEmaConfig, ok := config.(*MAEmaCorrelationConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := maEmaConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	// Получаем цены закрытия
+	prices := make([]float64, len(candles))
+	for i, candle := range candles {
+		prices[i] = candle.Close.ToFloat64()
+	}
+
+	// Рассчитываем MA и EMA
+	ma := internal.CalculateSMACommonForValues(prices, maEmaConfig.MAPeriod)
+	ema := internal.CalculateEMAForFloats(prices, maEmaConfig.EMAPeriod)
+
+	if ma == nil || ema == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	// Рассчитываем скользящую корреляцию между MA и EMA
+	correlations := internal.CalculateRollingCorrelation(ma, ema, maEmaConfig.Lookback)
+	if correlations == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	// Начинаем анализ после достаточного количества данных
+	startIndex := maEmaConfig.MAPeriod + maEmaConfig.EMAPeriod + maEmaConfig.Lookback - 3 // приблизительно
+
+	for i := startIndex; i < len(candles); i++ {
+		corr := correlations[i]
+
+		// BUY: высокая положительная корреляция
+		if !inPosition && corr > maEmaConfig.Threshold {
+			signals[i] = internal.BUY
+			inPosition = true
+			continue
+		}
+
+		// SELL: отрицательная корреляция
+		if inPosition && corr < -maEmaConfig.Threshold {
+			signals[i] = internal.SELL
+			inPosition = false
+			continue
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *MaEmaCorrelationStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &MAEmaCorrelationConfig{
+		MAPeriod:  20,
+		EMAPeriod: 20,
+		Lookback:  10,
+		Threshold: 0.7,
 	}
 	bestProfit := -1.0
-
-	generator := s.GenerateSignals
 
 	// Оптимизируем параметры
 	for maPeriod := 10; maPeriod <= 30; maPeriod += 5 {
 		for emaPeriod := 10; emaPeriod <= 30; emaPeriod += 5 {
 			for lookback := 5; lookback <= 15; lookback += 5 {
 				for threshold := 0.5; threshold <= 0.9; threshold += 0.1 {
-					params := internal.StrategyParams{
-						MaEmaCorrelationMAPeriod:  maPeriod,
-						MaEmaCorrelationEMAPeriod: emaPeriod,
-						MaEmaCorrelationLookback:  lookback,
-						MaEmaCorrelationThreshold: threshold,
+					config := &MAEmaCorrelationConfig{
+						MAPeriod:  maPeriod,
+						EMAPeriod: emaPeriod,
+						Lookback:  lookback,
+						Threshold: threshold,
 					}
-					signals := generator(candles, params)
+					if config.Validate() != nil {
+						continue
+					}
+
+					signals := s.GenerateSignalsWithConfig(candles, config)
 					result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 					if result.TotalProfit > bestProfit {
 						bestProfit = result.TotalProfit
-						bestParams = params
+						bestConfig = config
 					}
 				}
 			}
 		}
 	}
 
-	fmt.Printf("🔍 Лучшие параметры ma_ema: emaPeriod=%d, maPeriod=%d, lookBack=%d → threshold=%.2f%%\n",
-		bestParams.MaEmaCorrelationEMAPeriod, bestParams.MaEmaCorrelationMAPeriod,
-		bestParams.MaEmaCorrelationLookback, bestParams.MaEmaCorrelationThreshold)
+	fmt.Printf("Лучшие параметры SOLID MA-EMA: ma=%d, ema=%d, lookback=%d, threshold=%.2f, профит=%.4f\n",
+		bestConfig.MAPeriod, bestConfig.EMAPeriod, bestConfig.Lookback, bestConfig.Threshold, bestProfit)
 
-	return bestParams
+	return bestConfig
 }
 
 func init() {

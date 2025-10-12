@@ -27,6 +27,12 @@ func (r *ParallelStrategyRunner) RunStrategy(strategyName string, candles []inte
 		return nil, fmt.Errorf("стратегия %s не найдена", strategyName)
 	}
 
+	// Check if it's a SOLID strategy
+	solidStrategy, ok := strategy.(internal.SolidStrategy)
+	if !ok {
+		return nil, fmt.Errorf("стратегия %s не поддерживает SOLID архитектуру", strategyName)
+	}
+
 	strategyStartTime := time.Now()
 
 	if r.debug {
@@ -34,8 +40,8 @@ func (r *ParallelStrategyRunner) RunStrategy(strategyName string, candles []inte
 	}
 
 	// Оптимизация параметров и генерация сигналов
-	params := strategy.Optimize(candles)
-	signals := strategy.GenerateSignals(candles, params)
+	config := solidStrategy.OptimizeWithConfig(candles)
+	signals := solidStrategy.GenerateSignalsWithConfig(candles, config)
 	result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 
 	executionTime := time.Since(strategyStartTime)
@@ -125,13 +131,19 @@ func (r *SingleStrategyRunner) RunStrategy(strategyName string, candles []intern
 		return nil, fmt.Errorf("стратегия %s не найдена", strategyName)
 	}
 
+	// Check if it's a SOLID strategy
+	solidStrategy, ok := strategy.(internal.SolidStrategy)
+	if !ok {
+		return nil, fmt.Errorf("стратегия %s не поддерживает SOLID архитектуру", strategyName)
+	}
+
 	fmt.Printf("🎯 Выбрана стратегия: %s\n", strategy.Name())
 
 	startTime := time.Now()
 
 	// Запуск основной стратегии
-	params := strategy.Optimize(candles)
-	signals := strategy.GenerateSignals(candles, params)
+	config := solidStrategy.OptimizeWithConfig(candles)
+	signals := solidStrategy.GenerateSignalsWithConfig(candles, config)
 	result := internal.Backtest(candles, signals, 0.01)
 
 	executionTime := time.Since(startTime)
@@ -146,8 +158,14 @@ func (r *SingleStrategyRunner) RunStrategy(strategyName string, candles []intern
 
 	// Запуск Buy & Hold как бенчмарка
 	bnhStrategy := internal.GetStrategy("buy_and_hold")
-	bnhSignals := bnhStrategy.GenerateSignals(candles, internal.StrategyParams{})
-	internal.Backtest(candles, bnhSignals, 0.01)
+	bnhSolidStrategy, ok := bnhStrategy.(internal.SolidStrategy)
+	if ok {
+		bnhConfig := bnhSolidStrategy.DefaultConfig()
+		bnhSignals := bnhSolidStrategy.GenerateSignalsWithConfig(candles, bnhConfig)
+		internal.Backtest(candles, bnhSignals, 0.01)
+	} else {
+		fmt.Printf("⚠️  Buy & Hold не поддерживает SOLID архитектуру\n")
+	}
 
 	fmt.Printf("⚡ Стратегии выполнены за %v\n", executionTime)
 

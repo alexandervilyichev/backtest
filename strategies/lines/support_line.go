@@ -40,8 +40,36 @@ package lines
 
 import (
 	"bt/internal"
+	"errors"
 	"fmt"
 )
+
+type SupportLineConfig struct {
+	LookbackPeriod int     `json:"lookback_period"`
+	BuyThreshold   float64 `json:"buy_threshold"`
+	SellThreshold  float64 `json:"sell_threshold"`
+}
+
+func (c *SupportLineConfig) Validate() error {
+	if c.LookbackPeriod <= 0 {
+		return errors.New("lookback period must be positive")
+	}
+	if c.BuyThreshold <= 0 || c.BuyThreshold >= 1.0 {
+		return errors.New("buy threshold must be between 0 and 1.0")
+	}
+	if c.SellThreshold <= 0 || c.SellThreshold >= 1.0 {
+		return errors.New("sell threshold must be between 0 and 1.0")
+	}
+	if c.SellThreshold <= c.BuyThreshold {
+		return errors.New("sell threshold must be greater than buy threshold")
+	}
+	return nil
+}
+
+func (c *SupportLineConfig) DefaultConfigString() string {
+	return fmt.Sprintf("SupportLine(lookback=%d, buy_thresh=%.3f, sell_thresh=%.3f)",
+		c.LookbackPeriod, c.BuyThreshold, c.SellThreshold)
+}
 
 type SupportLineStrategy struct{}
 
@@ -105,39 +133,100 @@ func (s *SupportLineStrategy) GenerateSignals(candles []internal.Candle, params 
 	return signals
 }
 
-func (s *SupportLineStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		SupportLookbackPeriod: 20,
-		SupportBuyThreshold:   0.005,
-		SupportSellThreshold:  0.01,
+func (s *SupportLineStrategy) DefaultConfig() internal.StrategyConfig {
+	return &SupportLineConfig{
+		LookbackPeriod: 20,
+		BuyThreshold:   0.005,
+		SellThreshold:  0.01,
+	}
+}
+
+func (s *SupportLineStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	supportConfig, ok := config.(*SupportLineConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := supportConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	supportLevels := internal.CalculateRollingMin(candles, supportConfig.LookbackPeriod)
+	if supportLevels == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+	var entryPrice float64
+
+	for i := supportConfig.LookbackPeriod; i < len(candles); i++ {
+		support := supportLevels[i]
+		closePrice := candles[i].Close.ToFloat64()
+
+		if !inPosition && closePrice <= support*(1+supportConfig.BuyThreshold) {
+			signals[i] = internal.BUY
+			inPosition = true
+			entryPrice = closePrice
+			continue
+		}
+
+		if inPosition {
+			// Sell if price breaks below support
+			if closePrice <= support*(1-supportConfig.SellThreshold) {
+				signals[i] = internal.SELL
+				inPosition = false
+				continue
+			}
+			// Take profit if price rises 3% above entry
+			if closePrice >= entryPrice*1.03 {
+				signals[i] = internal.SELL
+				inPosition = false
+				continue
+			}
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *SupportLineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &SupportLineConfig{
+		LookbackPeriod: 20,
+		BuyThreshold:   0.005,
+		SellThreshold:  0.01,
 	}
 	bestProfit := -1.0
-
-	generator := s.GenerateSignals
 
 	// Grid search по параметрам
 	for lookback := 10; lookback <= 50; lookback += 5 {
 		for buyThresh := 0.001; buyThresh <= 0.02; buyThresh += 0.002 {
 			for sellThresh := 0.005; sellThresh <= 0.05; sellThresh += 0.005 {
-				params := internal.StrategyParams{
-					SupportLookbackPeriod: lookback,
-					SupportBuyThreshold:   buyThresh,
-					SupportSellThreshold:  sellThresh,
+				config := &SupportLineConfig{
+					LookbackPeriod: lookback,
+					BuyThreshold:   buyThresh,
+					SellThreshold:  sellThresh,
 				}
-				signals := generator(candles, params)
+				if config.Validate() != nil {
+					continue
+				}
+
+				signals := s.GenerateSignalsWithConfig(candles, config)
 				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 				if result.TotalProfit > bestProfit {
 					bestProfit = result.TotalProfit
-					bestParams = params
+					bestConfig = config
 				}
 			}
 		}
 	}
 
-	fmt.Printf("Лучшие параметры support: lookback=%d, buyThresh=%.4f, sellThresh=%.4f\n",
-		bestParams.SupportLookbackPeriod, bestParams.SupportBuyThreshold, bestParams.SupportSellThreshold)
+	fmt.Printf("Лучшие параметры SOLID Support: lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f, профит=%.4f\n",
+		bestConfig.LookbackPeriod, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)
 
-	return bestParams
+	return bestConfig
 }
 
 func init() {

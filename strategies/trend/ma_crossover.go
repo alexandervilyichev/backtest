@@ -37,7 +37,34 @@
 
 package trend
 
-import "bt/internal"
+import (
+	"bt/internal"
+	"errors"
+	"fmt"
+)
+
+type MACrossoverConfig struct {
+	FastPeriod int `json:"fast_period"`
+	SlowPeriod int `json:"slow_period"`
+}
+
+func (c *MACrossoverConfig) Validate() error {
+	if c.FastPeriod <= 0 {
+		return errors.New("fast period must be positive")
+	}
+	if c.SlowPeriod <= 0 {
+		return errors.New("slow period must be positive")
+	}
+	if c.FastPeriod >= c.SlowPeriod {
+		return errors.New("fast period must be less than slow period")
+	}
+	return nil
+}
+
+func (c *MACrossoverConfig) DefaultConfigString() string {
+	return fmt.Sprintf("MACrossover(fast=%d, slow=%d)",
+		c.FastPeriod, c.SlowPeriod)
+}
 
 type MovingAverageCrossoverStrategy struct{}
 
@@ -108,32 +135,100 @@ func (s *MovingAverageCrossoverStrategy) GenerateSignals(candles []internal.Cand
 	return signals
 }
 
-func (s *MovingAverageCrossoverStrategy) Optimize(candles []internal.Candle) internal.StrategyParams {
-	bestParams := internal.StrategyParams{
-		AoFastPeriod: 10, // быстрая MA
-		AoSlowPeriod: 20, // медленная MA
+func (s *MovingAverageCrossoverStrategy) DefaultConfig() internal.StrategyConfig {
+	return &MACrossoverConfig{
+		FastPeriod: 10,
+		SlowPeriod: 20,
+	}
+}
+
+func (s *MovingAverageCrossoverStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+	maConfig, ok := config.(*MACrossoverConfig)
+	if !ok {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	if err := maConfig.Validate(); err != nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	// Рассчитываем скользящие средние
+	fastMA := internal.CalculateSMACommon(candles, maConfig.FastPeriod)
+	slowMA := internal.CalculateSMACommon(candles, maConfig.SlowPeriod)
+
+	if fastMA == nil || slowMA == nil {
+		return make([]internal.SignalType, len(candles))
+	}
+
+	signals := make([]internal.SignalType, len(candles))
+	inPosition := false
+
+	// Начинаем анализ с максимального из двух периодов
+	startIndex := maConfig.SlowPeriod - 1
+	if maConfig.FastPeriod > maConfig.SlowPeriod {
+		startIndex = maConfig.FastPeriod - 1
+	}
+
+	for i := startIndex; i < len(candles); i++ {
+		// Проверяем пересечение скользящих средних
+		if i > startIndex {
+			prevFast := fastMA[i-1]
+			prevSlow := slowMA[i-1]
+			currFast := fastMA[i]
+			currSlow := slowMA[i]
+
+			// Быстрая MA пересекает медленную MA снизу вверх - сигнал на покупку
+			if !inPosition && prevFast <= prevSlow && currFast > currSlow {
+				signals[i] = internal.BUY
+				inPosition = true
+				continue
+			}
+
+			// Быстрая MA пересекает медленную MA сверху вниз - сигнал на продажу
+			if inPosition && prevFast >= prevSlow && currFast < currSlow {
+				signals[i] = internal.SELL
+				inPosition = false
+				continue
+			}
+		}
+
+		signals[i] = internal.HOLD
+	}
+
+	return signals
+}
+
+func (s *MovingAverageCrossoverStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := &MACrossoverConfig{
+		FastPeriod: 10,
+		SlowPeriod: 20,
 	}
 	bestProfit := -1.0
-
-	generator := s.GenerateSignals
 
 	// Оптимизируем периоды скользящих средних
 	for fast := 5; fast <= 15; fast += 2 {
 		for slow := fast + 5; slow <= 30; slow += 5 {
-			params := internal.StrategyParams{
-				AoFastPeriod: fast,
-				AoSlowPeriod: slow,
+			config := &MACrossoverConfig{
+				FastPeriod: fast,
+				SlowPeriod: slow,
 			}
-			signals := generator(candles, params)
+			if config.Validate() != nil {
+				continue
+			}
+
+			signals := s.GenerateSignalsWithConfig(candles, config)
 			result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 			if result.TotalProfit > bestProfit {
 				bestProfit = result.TotalProfit
-				bestParams = params
+				bestConfig = config
 			}
 		}
 	}
 
-	return bestParams
+	fmt.Printf("Лучшие параметры SOLID MA Crossover: fast=%d, slow=%d, профит=%.4f\n",
+		bestConfig.FastPeriod, bestConfig.SlowPeriod, bestProfit)
+
+	return bestConfig
 }
 
 func init() {

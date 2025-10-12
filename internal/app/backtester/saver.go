@@ -36,8 +36,14 @@ func (s *FileSaver) SaveTopStrategies(candles []internal.Candle, results []Bench
 
 		// Получаем стратегию и генерируем сигналы
 		strategy := internal.GetStrategy(strategyName)
-		params := strategy.Optimize(candles)
-		signals := strategy.GenerateSignals(candles, params)
+		solidStrategy, ok := strategy.(internal.SolidStrategy)
+		if !ok {
+			log.Printf("⚠️  Стратегия %s не поддерживает SOLID архитектуру, пропускаем", strategyName)
+			continue
+		}
+
+		config := solidStrategy.OptimizeWithConfig(candles)
+		signals := solidStrategy.GenerateSignalsWithConfig(candles, config)
 
 		// Создаем массив свечей с сигналами
 		candlesWithSignals := make([]CandleWithSignal, len(candles))
@@ -59,12 +65,12 @@ func (s *FileSaver) SaveTopStrategies(candles []internal.Candle, results []Bench
 		// Сохраняем в файл
 		data := struct {
 			Strategy string                  `json:"strategy"`
-			Params   internal.StrategyParams `json:"params"`
+			Config   internal.StrategyConfig `json:"config"`
 			Profit   float64                 `json:"profit"`
 			Candles  []CandleWithSignal      `json:"candles"`
 		}{
 			Strategy: strategyName,
-			Params:   params,
+			Config:   config,
 			Profit:   results[i].TotalProfit,
 			Candles:  candlesWithSignals,
 		}
