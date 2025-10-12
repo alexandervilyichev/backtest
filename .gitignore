@@ -8,6 +8,7 @@
 # Test binary, built with `go test -c`
 *.test
 *.prof
+*_signals.json
 
 # Output of the go coverage tool
 *.out

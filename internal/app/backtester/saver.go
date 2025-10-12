@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"bt/internal"
 )
@@ -48,8 +49,14 @@ func (s *FileSaver) SaveTopStrategies(candles []internal.Candle, results []Bench
 		// Создаем массив свечей с сигналами
 		candlesWithSignals := make([]CandleWithSignal, len(candles))
 		for j, candle := range candles {
+			// Normalize time: prefer pre-parsed ParsedTime if available, fallback to original string
+			ts := candle.Time
+			t := candle.ToTime()
+			if !t.IsZero() {
+				ts = t.Format(time.RFC3339Nano)
+			}
 			candlesWithSignals[j] = CandleWithSignal{
-				Time:   candle.Time,
+				Time:   ts,
 				Open:   candle.Open.ToFloat64(),
 				High:   candle.High.ToFloat64(),
 				Low:    candle.Low.ToFloat64(),
