@@ -175,7 +175,7 @@
 
         async function loadDataFromFile() {
             try {
-                const response = await fetch('./tmos_cci_oscillator_signals.json');
+                const response = await fetch('./arima_strategy_signals.json');
                 const data = await response.json();
                 return data;
             } catch (error) {
