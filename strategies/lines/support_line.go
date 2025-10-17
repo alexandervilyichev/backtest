@@ -3,35 +3,40 @@
 // Support Line Strategy
 //
 // Описание стратегии:
-// Стратегия основана на концепции уровней поддержки - ценовых уровнях, где спрос превышает предложение,
-// что приводит к развороту цены вверх. Стратегия ищет моменты, когда цена приближается к поддержке,
-// и открывает длинные позиции с расчетом на отскок.
+// Стратегия основана на концепции уровней поддержки - ценовых уровнях, где ожидается
+// разворот цены вверх из-за превышения спроса над предложением. Стратегия ищет моменты,
+// когда цена приближается к уровню поддержки снизу и открывает длинные позиции.
 //
 // Как работает:
 // - Рассчитывается скользящий минимум (support level) за заданный период lookback
-// - Покупка: когда цена закрытия находится вблизи уровня поддержки (ниже support * (1 + buyThreshold))
-// - Продажа: когда цена пробивает уровень поддержки снизу (ниже support * (1 - sellThreshold))
-// - Дополнительно: фиксация прибыли при росте на 3% от цены входа
+// - Покупка: когда цена закрытия опускается ниже уровня поддержки или очень близко к нему
+// - Продажа: когда цена пробивает уровень поддержки вниз (подтверждение слома поддержки)
+// - Фиксация прибыли: при достижении предыдущего максимума или сильном росте
 //
 // Параметры:
-// - SupportLookbackPeriod: период для расчета скользящего минимума (обычно 10-30)
-// - SupportBuyThreshold: порог приближения к поддержке для покупки (обычно 0.005 = 0.5%)
-// - SupportSellThreshold: порог пробоя поддержки для продажи (обычно 0.01 = 1%)
+// - LookbackPeriod: период для расчета скользящего минимума (обычно 10-30)
+// - BuyThreshold: порог расстояния до поддержки для покупки (обычно 0.001-0.01 = 0.1-1%)
+// - SellThreshold: порог пробоя поддержки для продажи (обычно 0.005-0.02 = 0.5-2%)
+//
+// Сигналы стратегии:
+// - BUY: цена приближается к поддержке снизу (closePrice >= support * (1 - buyThreshold))
+// - SELL: цена пробивает поддержку вниз (closePrice < support * (1 - sellThreshold))
+// - HOLD: позиция удерживается до сигнала продажи
 //
 // Сильные стороны:
 // - Логичная идея: покупка у поддержки с ожиданием отскока
-// - Хорошо работает в трендовых рынках с коррекциями
+// - Хорошо работает в восходящих трендах с коррекциями
 // - Учитывает рыночную психологию (поддержка как уровень спроса)
-// - Может быть эффективна в комбинации с другими индикаторами
+// - Может быть эффективна в комбинации с объемом или momentum индикаторами
 //
 // Слабые стороны:
-// - Поддержка может не сработать, особенно в сильных нисходящих трендах
+// - Поддержка может не сработать в сильных нисходящих трендах
 // - Зависит от правильного определения периода lookback
 // - Может давать ложные сигналы при пробое поддержки
 // - Требует хорошего risk management из-за потенциальных стоп-лоссов
 //
 // Лучшие условия для применения:
-// - Трендовые рынки с коррекциями
+// - Восходящие тренды с коррекциями
 // - Средне- и долгосрочная торговля
 // - Волатильные активы с четкими уровнями поддержки/сопротивления
 // - В сочетании с объемом или momentum индикаторами
@@ -67,7 +72,7 @@ func (c *SupportLineConfig) Validate() error {
 }
 
 func (c *SupportLineConfig) DefaultConfigString() string {
-	return fmt.Sprintf("SupportLine(lookback=%d, buy_thresh=%.3f, sell_thresh=%.3f)",
+	return fmt.Sprintf("SupportLine(lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f)",
 		c.LookbackPeriod, c.BuyThreshold, c.SellThreshold)
 }
 
@@ -80,8 +85,8 @@ func (s *SupportLineStrategy) Name() string {
 func (s *SupportLineStrategy) DefaultConfig() internal.StrategyConfig {
 	return &SupportLineConfig{
 		LookbackPeriod: 20,
-		BuyThreshold:   0.005,
-		SellThreshold:  0.01,
+		BuyThreshold:   0.005, // 0.5% от уровня поддержки
+		SellThreshold:  0.015, // 1.5% от уровня поддержки
 	}
 }
 
@@ -108,7 +113,9 @@ func (s *SupportLineStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 		support := supportLevels[i]
 		closePrice := candles[i].Close.ToFloat64()
 
-		if !inPosition && closePrice <= support*(1+supportConfig.BuyThreshold) {
+		// BUY сигнал: цена приближается к поддержке снизу
+		// closePrice >= support * (1 - buyThreshold) означает цена выше поддержки минус порог
+		if !inPosition && closePrice >= support*(1-supportConfig.BuyThreshold) {
 			signals[i] = internal.BUY
 			inPosition = true
 			entryPrice = closePrice
@@ -116,14 +123,15 @@ func (s *SupportLineStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 		}
 
 		if inPosition {
-			// Sell if price breaks below support
-			if closePrice <= support*(1-supportConfig.SellThreshold) {
+			// SELL сигнал: цена пробивает поддержку вниз
+			if closePrice < support*(1-supportConfig.SellThreshold) {
 				signals[i] = internal.SELL
 				inPosition = false
 				continue
 			}
-			// Take profit if price rises 3% above entry
-			if closePrice >= entryPrice*1.03 {
+
+			// Дополнительная фиксация прибыли при сильном росте (более 5% от входа)
+			if closePrice >= entryPrice*1.05 {
 				signals[i] = internal.SELL
 				inPosition = false
 				continue
@@ -140,14 +148,14 @@ func (s *SupportLineStrategy) OptimizeWithConfig(candles []internal.Candle) inte
 	bestConfig := &SupportLineConfig{
 		LookbackPeriod: 20,
 		BuyThreshold:   0.005,
-		SellThreshold:  0.01,
+		SellThreshold:  0.015,
 	}
 	bestProfit := -1.0
 
 	// Grid search по параметрам
-	for lookback := 10; lookback <= 50; lookback += 5 {
+	for lookback := 40; lookback <= 50; lookback += 1 {
 		for buyThresh := 0.001; buyThresh <= 0.02; buyThresh += 0.002 {
-			for sellThresh := 0.005; sellThresh <= 0.05; sellThresh += 0.005 {
+			for sellThresh := buyThresh; sellThresh <= 0.03; sellThresh += 0.0002 {
 				config := &SupportLineConfig{
 					LookbackPeriod: lookback,
 					BuyThreshold:   buyThresh,
@@ -167,7 +175,7 @@ func (s *SupportLineStrategy) OptimizeWithConfig(candles []internal.Candle) inte
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Support: lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры SOLID Support Line: lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f, профит=%.4f\n",
 		bestConfig.LookbackPeriod, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)
 
 	return bestConfig

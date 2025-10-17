@@ -157,10 +157,10 @@ func avgCommon(xs []float64) float64 {
 
 // calculateRollingMin вычисляет скользящий минимум
 func CalculateRollingMin(candles []Candle, period int) []float64 {
-	key := keyFor("RMin", "candles", period)
-	if cached, ok := Cache.Load(key); ok {
-		return cached.([]float64)
-	}
+	// key := keyFor("RMin", "candles", period)
+	// if cached, ok := Cache.Load(key); ok {
+	// 	return cached.([]float64)
+	// }
 
 	if len(candles) < period {
 		return nil
@@ -181,7 +181,7 @@ func CalculateRollingMin(candles []Candle, period int) []float64 {
 		minValues[i] = min
 	}
 
-	Cache.Store(key, minValues)
+	// Cache.Store(key, minValues)
 	return minValues
 }
 
