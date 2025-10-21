@@ -11,22 +11,12 @@ type StrategyConfig interface {
 	DefaultConfigString() string
 }
 
-type Strategy interface {
-	Name() string
-}
-
 // New SOLID architecture interfaces - will replace StrategyParams eventually
-type SolidStrategy interface {
+type Strategy interface {
 	Name() string
 	DefaultConfig() StrategyConfig
 	GenerateSignalsWithConfig(candles []Candle, config StrategyConfig) []SignalType
 	OptimizeWithConfig(candles []Candle) StrategyConfig
-}
-
-// Backward compatibility interface during transition
-type TransitionalStrategy interface {
-	Strategy
-	SolidStrategy
 }
 
 var strategies = make(map[string]Strategy)

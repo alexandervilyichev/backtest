@@ -183,14 +183,10 @@ func runStrategies(config backtester.Config, runner backtester.StrategyRunner, c
 	// Добавляем Buy & Hold как бенчмарк
 	bnhStrategy := internal.GetStrategy("buy_and_hold")
 	var bnhResult internal.BacktestResult
-	if bnhSolidStrategy, ok := bnhStrategy.(internal.SolidStrategy); ok {
-		bnhConfig := bnhSolidStrategy.DefaultConfig()
-		bnhSignals := bnhSolidStrategy.GenerateSignalsWithConfig(candles, bnhConfig)
-		bnhResult = internal.Backtest(candles, bnhSignals, 0.01)
-	} else {
-		fmt.Println("⚠️  Buy & Hold не поддерживает SOLID архитектуру")
-		bnhResult = internal.BacktestResult{} // Empty result if not SOLID compatible
-	}
+
+	bnhConfig := bnhStrategy.DefaultConfig()
+	bnhSignals := bnhStrategy.GenerateSignalsWithConfig(candles, bnhConfig)
+	bnhResult = internal.Backtest(candles, bnhSignals, 0.01)
 
 	results := []backtester.BenchmarkResult{
 		*mainResult,

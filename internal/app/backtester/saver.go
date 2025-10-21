@@ -37,14 +37,9 @@ func (s *FileSaver) SaveTopStrategies(candles []internal.Candle, results []Bench
 
 		// Получаем стратегию и генерируем сигналы
 		strategy := internal.GetStrategy(strategyName)
-		solidStrategy, ok := strategy.(internal.SolidStrategy)
-		if !ok {
-			log.Printf("⚠️  Стратегия %s не поддерживает SOLID архитектуру, пропускаем", strategyName)
-			continue
-		}
 
-		config := solidStrategy.OptimizeWithConfig(candles)
-		signals := solidStrategy.GenerateSignalsWithConfig(candles, config)
+		config := strategy.OptimizeWithConfig(candles)
+		signals := strategy.GenerateSignalsWithConfig(candles, config)
 
 		// Создаем массив свечей с сигналами
 		candlesWithSignals := make([]CandleWithSignal, len(candles))
