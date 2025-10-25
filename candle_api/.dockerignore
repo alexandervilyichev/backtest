@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.h5
+*.pkl
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
