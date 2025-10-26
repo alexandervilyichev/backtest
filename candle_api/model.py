@@ -12,7 +12,7 @@ class CandlePredictor:
         self.scaler_path = scaler_path
         self.model = None
         self.scaler = MinMaxScaler()
-        self.seq_length = 30  # default
+        self.seq_length = 240  # default
         self.input_shape = (self.seq_length, 1)  # seq_length, features, default 1 for close only
         self.fields = ['close']  # default, will be set during training
     
