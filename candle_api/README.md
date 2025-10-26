@@ -19,7 +19,52 @@ Based on the `internal/candle.go` structure from the parent project:
 - `isComplete`: boolean
 - `candleSource`: string
 
+## Local Development
+
+1. Create and activate virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. (Optional) Configure paths in .env file for custom model paths
+
+4. Run the server:
+   ```bash
+   python app.py
+   ```
+   or
+   ```bash
+   uvicorn app:app --host 0.0.0.0 --port 8000
+   ```
+
+5. Access the API at `http://localhost:8000`
+
+Interactive docs: `http://localhost:8000/docs`
+
+Model files are saved locally in current directory (can be customized with .env).
+
 ## Running with Docker
+
+### Using Docker Compose (recommended)
+
+1. Start the service:
+   ```bash
+   docker-compose up --build
+   ```
+
+2. Access the API at `http://localhost:8000`
+
+Interactive docs: `http://localhost:8000/docs`
+
+Model files are persisted in `./models/` directory.
+
+### Or using Docker directly
 
 1. Build the image:
    ```bash
@@ -58,6 +103,7 @@ Train the model.
     ...
   ],
   "fields": ["close"],  // list of fields to train on, default ["close"]
+  "seq_length": 30,  // sequence length for LSTM, default 30
   "epochs": 50  // optional
 }
 ```

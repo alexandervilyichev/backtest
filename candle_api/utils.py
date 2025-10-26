@@ -44,6 +44,11 @@ def prepare_data(candles: List[Candle], fields: Optional[List[str]] = None, seq_
     """
     Prepares data for LSTM training.
     fields: list of field names to use, e.g. ['close'], default all relevant numeric fields
+    seq_length: length of sequence for input
+    """
+    """
+    Prepares data for LSTM training.
+    fields: list of field names to use, e.g. ['close'], default all relevant numeric fields
     """
     if fields is None:
         fields = ['open', 'high', 'low', 'close', 'volume']  # exclude time and metadata for now

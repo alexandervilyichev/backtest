@@ -1,3 +1,7 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
@@ -12,6 +16,7 @@ predictor = CandlePredictor()
 class TrainRequest(BaseModel):
     candles: List[Dict[str, Any]]
     fields: List[str] = ["close"]  # required, default close
+    seq_length: int = 30  # sequence length for LSTM
     epochs: int = 50
 
 class PredictRequest(BaseModel):
@@ -23,9 +28,10 @@ def train_model(request: TrainRequest):
     try:
         candles = parse_candles(request.candles)
         predictor.fields = request.fields  # set fields for prediction
-        X, y = prepare_data(candles, request.fields)
+        predictor.seq_length = request.seq_length  # set seq_length
+        X, y = prepare_data(candles, request.fields, seq_length=request.seq_length)
         if len(X) == 0:
-            raise HTTPException(status_code=400, detail="Not enough candles for training with given sequence length.")
+            raise HTTPException(status_code=400, detail="Not enough candles for training with given seq_length.")
         predictor.train(X, y, epochs=request.epochs)
         return {"message": "Model trained successfully"}
     except Exception as e:
@@ -57,7 +63,7 @@ def prepare_data_for_prediction(seq_candles: list, fields: Optional[List[str]] =
     # Since we don't have y for prediction, we do minimal prep
     if fields is None:
         fields = ['open', 'high', 'low', 'close', 'volume']
-    
+
     data = []
     for c in seq_candles:
         row = []
@@ -76,5 +82,9 @@ def prepare_data_for_prediction(seq_candles: list, fields: Optional[List[str]] =
                 from utils import timestamp_from_str
                 row.append(timestamp_from_str(c.time))
         data.append(row)
-    
+
     return np.array(data)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

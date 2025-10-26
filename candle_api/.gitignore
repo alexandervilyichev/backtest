@@ -1,0 +1,29 @@
+# Model files
+*.keras
+*.h5
+*.pkl
+model.keras
+scaler.pkl
+fields.pkl
+seq_length.pkl
+models/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Environment
+.env
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
