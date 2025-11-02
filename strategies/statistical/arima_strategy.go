@@ -7,7 +7,7 @@
 // - Валидацией качества модели
 // - Динамическим порогом сигналов
 
-package strategies
+package statistical
 
 import (
 	"bt/internal"

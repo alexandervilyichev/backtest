@@ -12,12 +12,24 @@ import (
 
 // ParallelStrategyRunner — реализация параллельного запуска стратегий
 type ParallelStrategyRunner struct {
-	debug bool
+	debug   bool
+	printer ResultPrinter
 }
 
 // NewParallelStrategyRunner — конструктор для ParallelStrategyRunner
 func NewParallelStrategyRunner(debug bool) *ParallelStrategyRunner {
-	return &ParallelStrategyRunner{debug: debug}
+	return &ParallelStrategyRunner{
+		debug:   debug,
+		printer: NewConsolePrinter(), // По умолчанию консольный принтер
+	}
+}
+
+// NewParallelStrategyRunnerWithPrinter — конструктор с кастомным принтером
+func NewParallelStrategyRunnerWithPrinter(debug bool, printer ResultPrinter) *ParallelStrategyRunner {
+	return &ParallelStrategyRunner{
+		debug:   debug,
+		printer: printer,
+	}
 }
 
 // RunStrategy — запускает одну стратегию
@@ -51,8 +63,11 @@ func (r *ParallelStrategyRunner) RunStrategy(strategyName string, candles []inte
 
 // RunAllStrategies — запускает все доступные стратегии параллельно
 func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]BenchmarkResult, error) {
-	fmt.Println("🎯 Запуск всех доступных стратегий для сравнения...")
+	fmt.Println("\n" + strings.Repeat("═", 80))
+	fmt.Println("🚀 ЗАПУСК МАССОВОГО ТЕСТИРОВАНИЯ СТРАТЕГИЙ")
+	fmt.Println(strings.Repeat("═", 80))
 	fmt.Printf("🔥 Параллельное выполнение на %d ядрах\n", runtime.NumCPU())
+	fmt.Printf("📊 Данных для анализа: %d свечей\n", len(candles))
 
 	startTime := time.Now()
 	strategyNames := internal.GetStrategyNames()
@@ -62,6 +77,9 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 		fmt.Printf("🐛 DEBUG: Найдено %d стратегий для тестирования: %s\n",
 			totalStrategies, strings.Join(strategyNames, ", "))
 	}
+
+	fmt.Printf("🎯 Всего стратегий к запуску: %d\n", totalStrategies)
+	fmt.Println(strings.Repeat("─", 80))
 
 	// Канал для результатов
 	resultsChan := make(chan BenchmarkResult, totalStrategies)
@@ -79,8 +97,8 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 				return
 			} else {
 				resultsChan <- *result
-				fmt.Printf("✅ Завершена стратегия: %s (прибыль: %.2f%%, время: %v)\n",
-					result.Name, result.TotalProfit*100, result.ExecutionTime)
+				fmt.Printf("✅ %-25s │ Прибыль: %+7.2f%% │ Сделки: %4d │ Время: %8v\n",
+					result.Name, result.TotalProfit*100, result.TradeCount, result.ExecutionTime)
 			}
 		}(name)
 	}
@@ -95,15 +113,17 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 	for result := range resultsChan {
 		results = append(results, result)
 		completed++
-
-		// Показываем прогресс
-		if completed%5 == 0 || completed == totalStrategies {
-			fmt.Printf("📊 Прогресс: %d/%d стратегий завершено\n", completed, totalStrategies)
-		}
 	}
 
 	elapsed := time.Since(startTime)
-	fmt.Printf("⚡ Все стратегии выполнены за %v\n", elapsed)
+	fmt.Println(strings.Repeat("─", 80))
+	fmt.Printf("⚡ Все %d стратегий выполнены за %v\n", totalStrategies, elapsed)
+	fmt.Printf("⏱️  Среднее время на стратегию: %v\n", elapsed/time.Duration(totalStrategies))
+
+	// Выводим результаты через принтер
+	if r.printer != nil {
+		r.printer.PrintComparison(results)
+	}
 
 	return results, nil
 }
@@ -125,13 +145,23 @@ func (r *SingleStrategyRunner) RunStrategy(strategyName string, candles []intern
 		return nil, fmt.Errorf("стратегия %s не найдена", strategyName)
 	}
 
-	fmt.Printf("🎯 Выбрана стратегия: %s\n", strategy.Name())
+	fmt.Println("\n" + strings.Repeat("═", 80))
+	fmt.Println("🎯 ТЕСТИРОВАНИЕ ОДИНОЧНОЙ СТРАТЕГИИ")
+	fmt.Println(strings.Repeat("═", 80))
+	fmt.Printf("📈 Стратегия: %s\n", strategy.Name())
+	fmt.Printf("📊 Данных для анализа: %d свечей\n", len(candles))
+	fmt.Println(strings.Repeat("─", 80))
 
 	startTime := time.Now()
 
 	// Запуск основной стратегии
+	fmt.Println("🔄 Оптимизация параметров...")
 	config := strategy.OptimizeWithConfig(candles)
+	
+	fmt.Println("📡 Генерация торговых сигналов...")
 	signals := strategy.GenerateSignalsWithConfig(candles, config)
+	
+	fmt.Println("💹 Выполнение бэктестинга...")
 	result := internal.Backtest(candles, signals, 0.01)
 
 	executionTime := time.Since(startTime)
@@ -151,7 +181,8 @@ func (r *SingleStrategyRunner) RunStrategy(strategyName string, candles []intern
 	bnhSignals := bnhStrategy.GenerateSignalsWithConfig(candles, bnhConfig)
 	internal.Backtest(candles, bnhSignals, 0.01)
 
-	fmt.Printf("⚡ Стратегии выполнены за %v\n", executionTime)
+	fmt.Println(strings.Repeat("─", 80))
+	fmt.Printf("⚡ Тестирование завершено за %v\n", executionTime)
 
 	return mainResult, nil
 }

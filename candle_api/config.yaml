@@ -1,0 +1,66 @@
+model:
+  sequence_length: 60  # количество предыдущих свечей для предсказания
+  prediction_steps: 5  # количество свечей для предсказания
+  features:  # поля свечи для обучения
+    - "close"
+    - "volume"
+    - "high"
+    - "low"
+    - "open"
+  
+training:
+  epochs: 100
+  batch_size: 32
+  validation_split: 0.2
+  learning_rate: 0.001
+  
+lstm:
+  units: [50, 50]  # количество нейронов в каждом LSTM слое
+  dropout: 0.2
+  recurrent_dropout: 0.2
+  
+callbacks:
+  early_stopping:
+    patience: 10
+    monitor: "val_loss"
+    restore_best_weights: true
+  
+  reduce_lr:
+    factor: 0.5
+    patience: 5
+    min_lr: 0.0001
+    monitor: "val_loss"
+  
+  model_checkpoint:
+    save_best_only: true
+    monitor: "val_loss"
+    
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+brownian_motion:
+  heston:
+    window_size: 100
+    prediction_steps: 5
+    num_simulations: 1000
+    dt: 0.00396825  # 1/252 (дневной шаг)
+    confidence_level: 0.95
+  
+  garch:
+    window_size: 100
+    prediction_steps: 5
+    num_simulations: 1000
+    dt: 0.00396825
+    confidence_level: 0.95
+  
+  gbm:
+    window_size: 50
+    prediction_steps: 5
+    num_simulations: 1000
+    dt: 0.00396825
+    confidence_level: 0.95
+
+trading_signals:
+  threshold: 0.02  # 2% порог для генерации сигналов
+  min_probability: 0.6  # минимальная вероятность для BUY сигнала

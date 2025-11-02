@@ -1,0 +1,12 @@
+{
+  "feature_columns": [
+    "close",
+    "volume",
+    "high",
+    "low",
+    "open"
+  ],
+  "trained_at": "2025-10-28T22:20:33.838629",
+  "training_params": null,
+  "timeframe_minutes": 30
+}

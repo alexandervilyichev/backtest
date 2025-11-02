@@ -1,9 +1,11 @@
-tensorflow-cpu
+flask
+flask-cors
+tensorflow
 numpy
 pandas
 scikit-learn
-fastapi
-uvicorn
-python-multipart
-joblib
-python-dotenv
+pydantic
+watchdog
+pyyaml
+scipy
+matplotlib

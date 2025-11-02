@@ -109,12 +109,14 @@ func NewElliottWaveAnalyzer(minLen, maxLen int, fibThresh, trendStr float64) *El
 func (ewa *ElliottWaveAnalyzer) findSignificantExtrema(prices []float64) {
 	ewa.wavePoints = make([]WavePoint, 0)
 
-	for i := ewa.minWaveLength; i < len(prices)-ewa.minWaveLength; i++ {
+	// Используем более мягкий алгоритм поиска экстремумов
+	lookback := ewa.minWaveLength
+	
+	for i := lookback; i < len(prices)-lookback; i++ {
 		// Проверяем локальный максимум
 		isLocalMax := true
-		maxValue := prices[i]
-		for j := i - ewa.minWaveLength; j <= i+ewa.minWaveLength; j++ {
-			if j != i && prices[j] >= maxValue {
+		for j := i - lookback; j <= i+lookback; j++ {
+			if j != i && prices[j] > prices[i] {
 				isLocalMax = false
 				break
 			}
@@ -122,27 +124,27 @@ func (ewa *ElliottWaveAnalyzer) findSignificantExtrema(prices []float64) {
 
 		// Проверяем локальный минимум
 		isLocalMin := true
-		minValue := prices[i]
-		for j := i - ewa.minWaveLength; j <= i+ewa.minWaveLength; j++ {
-			if j != i && prices[j] <= minValue {
+		for j := i - lookback; j <= i+lookback; j++ {
+			if j != i && prices[j] < prices[i] {
 				isLocalMin = false
 				break
 			}
 		}
 
 		if isLocalMax || isLocalMin {
-			// Вычисляем силу экстремума
-			strength := 0.0
-			count := 0
-			for j := i - ewa.minWaveLength; j <= i+ewa.minWaveLength; j++ {
-				if j != i {
-					strength += math.Abs(prices[i] - prices[j])
-					count++
+			// Вычисляем силу экстремума как размах цен в окне
+			minInWindow := prices[i]
+			maxInWindow := prices[i]
+			for j := i - lookback; j <= i+lookback; j++ {
+				if prices[j] < minInWindow {
+					minInWindow = prices[j]
+				}
+				if prices[j] > maxInWindow {
+					maxInWindow = prices[j]
 				}
 			}
-			if count > 0 {
-				strength /= float64(count)
-			}
+			
+			strength := maxInWindow - minInWindow
 
 			point := WavePoint{
 				Index:    i,
@@ -154,7 +156,7 @@ func (ewa *ElliottWaveAnalyzer) findSignificantExtrema(prices []float64) {
 		}
 	}
 
-	// Фильтруем по максимальной длине волны
+	// Фильтруем по максимальной длине волны и силе
 	ewa.filterByWaveLength()
 }
 
@@ -283,15 +285,20 @@ func (ewa *ElliottWaveAnalyzer) checkFibonacciRatio() bool {
 
 // predictSignal генерирует торговый сигнал на основе волнового анализа
 func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64) internal.SignalType {
-	if len(ewa.wavePoints) < 1 {
+	if len(ewa.wavePoints) < 2 {
 		return internal.HOLD
 	}
 
 	// Находим ближайшую волновую точку
 	var lastWavePoint *WavePoint
+	var prevWavePoint *WavePoint
+	
 	for i := len(ewa.wavePoints) - 1; i >= 0; i-- {
 		if ewa.wavePoints[i].Index <= currentIndex {
 			lastWavePoint = &ewa.wavePoints[i]
+			if i > 0 {
+				prevWavePoint = &ewa.wavePoints[i-1]
+			}
 			break
 		}
 	}
@@ -301,50 +308,30 @@ func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64
 	}
 
 	currentPrice := prices[currentIndex]
-	priceChange := currentPrice - lastWavePoint.Price
-
-	// Улучшенная логика: генерируем сигналы на основе волн и тренда
-
-	// Основной сигнал: breakout after extrema
-	// После локального минимума - BUY если цена выше минимума
-	if !lastWavePoint.IsPeak && currentPrice > lastWavePoint.Price {
-		return internal.BUY
+	
+	// Расстояние от последней волновой точки
+	distanceFromWave := currentIndex - lastWavePoint.Index
+	
+	// Не генерируем сигналы слишком близко к волновой точке
+	if distanceFromWave < 3 {
+		return internal.HOLD
 	}
 
-	// После локального максимума - SELL если цена ниже максимума
-	if lastWavePoint.IsPeak && currentPrice < lastWavePoint.Price {
-		return internal.SELL
-	}
+	// Проверяем пробой уровней
+	priceChangePercent := (currentPrice - lastWavePoint.Price) / lastWavePoint.Price
 
-	// Торговля на откатах в зависимости от тренда
-	// BUY при мелком откате от максимума в восходящем тренде
-	if lastWavePoint.IsPeak && math.Abs(priceChange)/lastWavePoint.Price < 0.02 && ewa.trendDirection > 0 {
-		return internal.BUY
-	}
-
-	// SELL при мелком откате от минимума в нисходящем тренде
-	if !lastWavePoint.IsPeak && math.Abs(priceChange)/lastWavePoint.Price < 0.02 && ewa.trendDirection < 0 {
-		return internal.SELL
-	}
-
-	// Дополнительные сигналы на основе типов волн
-	// В импульсных волнах генерируем сигналы в направлении тренда
-	if lastWavePoint.WaveType > 0 && lastWavePoint.WaveType <= 5 {
-		if ewa.trendDirection > 0 && !lastWavePoint.IsPeak {
+	// Сигнал на пробой после минимума (восходящий импульс)
+	if !lastWavePoint.IsPeak && priceChangePercent > 0.01 {
+		// Дополнительная проверка: цена должна быть выше предыдущего максимума
+		if prevWavePoint != nil && prevWavePoint.IsPeak && currentPrice > prevWavePoint.Price {
 			return internal.BUY
 		}
-		if ewa.trendDirection < 0 && lastWavePoint.IsPeak {
-			return internal.SELL
-		}
 	}
 
-	// Проверяем Фибоначчи для усиления сигналов
-	if ewa.checkFibonacciRatio() {
-		// В условиях Фибоначчи генерируем сигналы модуляции тренда
-		if ewa.trendDirection > 0 {
-			return internal.BUY
-		}
-		if ewa.trendDirection < 0 {
+	// Сигнал на пробой после максимума (нисходящий импульс)
+	if lastWavePoint.IsPeak && priceChangePercent < -0.01 {
+		// Дополнительная проверка: цена должна быть ниже предыдущего минимума
+		if prevWavePoint != nil && !prevWavePoint.IsPeak && currentPrice < prevWavePoint.Price {
 			return internal.SELL
 		}
 	}
@@ -366,114 +353,6 @@ func (s *ElliottWaveStrategy) Name() string {
 	return "elliott_wave"
 }
 
-// func (s *ElliottWaveStrategy) GenerateSignals(candles []internal.Candle, params internal.StrategyParams) []internal.SignalType {
-// 	if len(candles) < 20 {
-// 		log.Printf("⚠️ Недостаточно данных для волнового анализа Эллиотта: получено %d свечей, требуется минимум 20", len(candles))
-// 		return make([]internal.SignalType, len(candles))
-// 	}
-
-// 	// Извлекаем параметры с более мягкими значениями по умолчанию
-// 	minWaveLength := params.MinWaveLength
-// 	if minWaveLength == 0 {
-// 		minWaveLength = 3 // уменьшили с 5 до 3
-// 	}
-
-// 	maxWaveLength := params.MaxWaveLength
-// 	if maxWaveLength == 0 {
-// 		maxWaveLength = 30 // уменьшили с 50 до 30
-// 	}
-
-// 	fibThreshold := params.FibonacciThreshold
-// 	if fibThreshold == 0 {
-// 		fibThreshold = 0.8 // увеличили с 0.618 до 0.8 для большей гибкости
-// 	}
-
-// 	trendStrength := params.TrendStrength
-// 	if trendStrength == 0 {
-// 		trendStrength = 0.1 // уменьшили с 0.3 до 0.1 для меньшей строгости
-// 	}
-
-// 	// Извлекаем ценовые данные
-// 	prices := make([]float64, len(candles))
-// 	for i, candle := range candles {
-// 		prices[i] = candle.Close.ToFloat64()
-// 	}
-
-// 	log.Printf("🔍 Анализ волн Эллиотта: мин.длина=%d, макс.длина=%d, фиб=%f, тренд=%f",
-// 		minWaveLength, maxWaveLength, fibThreshold, trendStrength)
-
-// 	// Создаем и обучаем анализатор волн
-// 	analyzer := NewElliottWaveAnalyzer(minWaveLength, maxWaveLength, fibThreshold, trendStrength)
-// 	analyzer.findSignificantExtrema(prices)
-// 	wavePoints := analyzer.identifyWavePattern()
-
-// 	log.Printf("✅ Найдено %d волновых точек", len(wavePoints))
-
-// 	// Генерируем сигналы
-// 	signals := make([]internal.SignalType, len(candles))
-// 	inPosition := false
-// 	positionEntryPrice := 0.0
-
-// 	for i := 20; i < len(candles); i++ {
-// 		signal := analyzer.predictSignal(i, prices)
-
-// 		currentPrice := prices[i]
-
-// 		// Логика входа в позицию
-// 		if !inPosition {
-// 			switch signal {
-// 			case internal.BUY:
-// 				signals[i] = internal.BUY
-// 				inPosition = true
-// 				positionEntryPrice = currentPrice
-// 				// log.Printf("   BUY сигнал на свече %d: цена=%.2f", i, currentPrice)
-// 			case internal.SELL:
-// 				signals[i] = internal.SELL
-// 				inPosition = true
-// 				positionEntryPrice = currentPrice
-// 				// log.Printf("   SELL сигнал на свече %d: цена=%.2f", i, currentPrice)
-// 			default:
-// 				signals[i] = internal.HOLD
-// 			}
-// 		} else {
-// 			// Логика выхода из позиции
-// 			priceChangePercent := (currentPrice - positionEntryPrice) / positionEntryPrice
-
-// 			// Выходим при достижении цели прибыли (3% для BUY, -3% для SELL)
-// 			if (inPosition && signal == internal.BUY && priceChangePercent > 0.03) ||
-// 				(inPosition && signal == internal.SELL && priceChangePercent < -0.03) {
-// 				signals[i] = internal.SELL
-// 				inPosition = false
-// 				// log.Printf("   SELL (цель) на свече %d: цена=%.2f, изменение=%.2f%%",
-// 				// 	i, currentPrice, priceChangePercent*100)
-// 			} else if signal == internal.SELL && inPosition {
-// 				// Выходим если получаем прямой сигнал на выход
-// 				signals[i] = internal.SELL
-// 				inPosition = false
-// 				// log.Printf("   SELL сигнал на свече %d: цена=%.2f", i, currentPrice)
-// 			} else if signal == internal.BUY && inPosition {
-// 				// Выходим из короткой позиции если получаем сигнал на покупку
-// 				signals[i] = internal.BUY
-// 				inPosition = false
-// 				// log.Printf("   BUY (выход из SELL) на свече %d: цена=%.2f", i, currentPrice)
-// 			} else {
-// 				// Удерживаем позицию или выходим при стоп-лоссе (3% убыток)
-// 				if (inPosition && signal == internal.BUY && priceChangePercent < -0.03) ||
-// 					(inPosition && signal == internal.SELL && priceChangePercent > 0.03) {
-// 					signals[i] = internal.SELL
-// 					inPosition = false
-// 					// log.Printf("   SELL (стоп-лосс) на свече %d: цена=%.2f, изменение=%.2f%%",
-// 					// 	i, currentPrice, priceChangePercent*100)
-// 				} else {
-// 					signals[i] = internal.HOLD
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	log.Printf("✅ Волновой анализ Эллиотта завершен")
-// 	return signals
-// }
 
 func (s *ElliottWaveStrategy) DefaultConfig() internal.StrategyConfig {
 	return &ElliottWaveConfig{
@@ -517,55 +396,30 @@ func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 
 	// Генерируем сигналы
 	signals := make([]internal.SignalType, len(candles))
-	inPosition := false
-	positionEntryPrice := 0.0
+	inLongPosition := false
+	lastSignalIndex := -1
+	minSignalDistance := 10 // минимальное расстояние между сигналами
 
 	for i := 20; i < len(candles); i++ {
 		signal := analyzer.predictSignal(i, prices)
+		
+		// Проверяем минимальное расстояние между сигналами
+		if lastSignalIndex >= 0 && i-lastSignalIndex < minSignalDistance {
+			signals[i] = internal.HOLD
+			continue
+		}
 
-		currentPrice := prices[i]
-
-		// Логика входа в позицию
-		if !inPosition {
-			switch signal {
-			case internal.BUY:
-				signals[i] = internal.BUY
-				inPosition = true
-				positionEntryPrice = currentPrice
-			case internal.SELL:
-				signals[i] = internal.SELL
-				inPosition = true
-				positionEntryPrice = currentPrice
-			default:
-				signals[i] = internal.HOLD
-			}
+		// Простая логика: только длинные позиции
+		if !inLongPosition && signal == internal.BUY {
+			signals[i] = internal.BUY
+			inLongPosition = true
+			lastSignalIndex = i
+		} else if inLongPosition && signal == internal.SELL {
+			signals[i] = internal.SELL
+			inLongPosition = false
+			lastSignalIndex = i
 		} else {
-			// Логика выхода из позиции
-			priceChangePercent := (currentPrice - positionEntryPrice) / positionEntryPrice
-
-			// Выходим при достижении цели прибыли (3% для BUY, -3% для SELL)
-			if (inPosition && signal == internal.BUY && priceChangePercent > 0.03) ||
-				(inPosition && signal == internal.SELL && priceChangePercent < -0.03) {
-				signals[i] = internal.SELL
-				inPosition = false
-			} else if signal == internal.SELL && inPosition {
-				// Выходим если получаем прямой сигнал на выход
-				signals[i] = internal.SELL
-				inPosition = false
-			} else if signal == internal.BUY && inPosition {
-				// Выходим из короткой позиции если получаем сигнал на покупку
-				signals[i] = internal.BUY
-				inPosition = false
-			} else {
-				// Удерживаем позицию или выходим при стоп-лоссе (3% убыток)
-				if (inPosition && signal == internal.BUY && priceChangePercent < -0.03) ||
-					(inPosition && signal == internal.SELL && priceChangePercent > 0.03) {
-					signals[i] = internal.SELL
-					inPosition = false
-				} else {
-					signals[i] = internal.HOLD
-				}
-			}
+			signals[i] = internal.HOLD
 		}
 	}
 

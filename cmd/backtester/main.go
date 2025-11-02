@@ -101,8 +101,8 @@ func main() {
 	}
 
 	// Инициализация компонентов
-	runner := createRunner(config)
-	printer := backtester.NewConsolePrinter()
+	printer := backtester.NewCombinedPrinter() // Используем комбинированный принтер для автоматической генерации MD отчетов
+	runner := createRunner(config, printer)
 	saver := backtester.NewFileSaver()
 
 	// Запуск стратегий
@@ -111,8 +111,7 @@ func main() {
 		log.Fatalf("Ошибка при запуске стратегий: %v", err)
 	}
 
-	// Вывод результатов
-	printer.PrintComparison(results)
+	// Результаты уже выведены через принтер в runner
 
 	// Сохранение данных для графиков
 	if config.SaveSignals > 0 {
@@ -161,9 +160,9 @@ func parseFlags() backtester.Config {
 }
 
 // createRunner — создает подходящий runner в зависимости от стратегии
-func createRunner(config backtester.Config) backtester.StrategyRunner {
+func createRunner(config backtester.Config, printer backtester.ResultPrinter) backtester.StrategyRunner {
 	if config.Strategy == "all" {
-		return backtester.NewParallelStrategyRunner(config.Debug)
+		return backtester.NewParallelStrategyRunnerWithPrinter(config.Debug, printer)
 	}
 	return backtester.NewSingleStrategyRunner(config.Debug)
 }
