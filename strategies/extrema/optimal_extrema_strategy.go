@@ -300,7 +300,7 @@ func (s *OptimalExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) i
 		}
 	}
 
-	log.Printf("Лучшие параметры SOLID OptimalExtrema: профит=%.4f", bestProfit)
+	log.Printf("Лучшие параметры OptimalExtrema: профит=%.4f", bestProfit)
 	return bestConfig
 }
 

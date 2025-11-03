@@ -134,7 +134,7 @@ func (s *PullbackSellStrategy) OptimizeWithConfig(candles []internal.Candle) int
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Pullback Sell: sensitivity=%d, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Pullback Sell: sensitivity=%d, профит=%.4f\n",
 		bestConfig.Sensitivity, bestProfit)
 
 	return bestConfig

@@ -175,7 +175,7 @@ func (s *SupportLineStrategy) OptimizeWithConfig(candles []internal.Candle) inte
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Support Line: lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Support Line: lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f, профит=%.4f\n",
 		bestConfig.LookbackPeriod, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)
 
 	return bestConfig

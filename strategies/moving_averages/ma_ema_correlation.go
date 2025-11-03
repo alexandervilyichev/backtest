@@ -180,7 +180,7 @@ func (s *MaEmaCorrelationStrategy) OptimizeWithConfig(candles []internal.Candle)
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID MA-EMA: ma=%d, ema=%d, lookback=%d, threshold=%.2f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры MA-EMA: ma=%d, ema=%d, lookback=%d, threshold=%.2f, профит=%.4f\n",
 		bestConfig.MAPeriod, bestConfig.EMAPeriod, bestConfig.Lookback, bestConfig.Threshold, bestProfit)
 
 	return bestConfig

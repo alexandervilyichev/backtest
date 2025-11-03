@@ -667,7 +667,7 @@ func (s *ExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) internal
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Extrema: min_dist=%d, win=%d, strength=%.1f, smooth=%s:%d, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Extrema: min_dist=%d, win=%d, strength=%.1f, smooth=%s:%d, профит=%.4f\n",
 		bestConfig.MinDistance, bestConfig.WindowSize, bestConfig.MinStrength,
 		bestConfig.SmoothingType, bestConfig.SmoothingPeriod, bestProfit)
 

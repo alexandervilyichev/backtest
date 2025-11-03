@@ -246,7 +246,7 @@ func (s *BollingerBandsStrategy) OptimizeWithConfig(candles []internal.Candle) i
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Bollinger Bands: period=%d, multiplier=%.2f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Bollinger Bands: period=%d, multiplier=%.2f, профит=%.4f\n",
 		bestConfig.Period, bestConfig.Multiplier, bestProfit)
 
 	return bestConfig

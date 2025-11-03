@@ -162,7 +162,7 @@ func (s *MovingAverageCrossoverStrategy) OptimizeWithConfig(candles []internal.C
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID MA Crossover: fast=%d, slow=%d, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры MA Crossover: fast=%d, slow=%d, профит=%.4f\n",
 		bestConfig.FastPeriod, bestConfig.SlowPeriod, bestProfit)
 
 	return bestConfig

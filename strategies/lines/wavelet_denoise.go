@@ -188,7 +188,7 @@ func (s *WaveletDenoiseStrategy) OptimizeWithConfig(candles []internal.Candle) i
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Wavelet: lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Wavelet: lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f, профит=%.4f\n",
 		bestConfig.LookbackPeriod, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)
 
 	return bestConfig

@@ -263,7 +263,7 @@ func (s *SuperTrendStrategy) OptimizeWithConfig(candles []internal.Candle) inter
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Supertrend: period=%d, multiplier=%.2f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Supertrend: period=%d, multiplier=%.2f, профит=%.4f\n",
 		bestConfig.Period, bestConfig.Multiplier, bestProfit)
 
 	return bestConfig

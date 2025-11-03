@@ -248,7 +248,7 @@ func (s *AwesomeOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle
 	}
 
 	// Убираем отладочный вывод для продакшена
-	fmt.Printf("🔍 Лучшие параметры SOLID AO: fast=%d, slow=%d, confirmTwo=%t → прибыль=%.4f\n",
+	fmt.Printf("🔍 Лучшие параметры AO: fast=%d, slow=%d, confirmTwo=%t → прибыль=%.4f\n",
 		bestConfig.FastPeriod, bestConfig.SlowPeriod, bestConfig.ConfirmByTwoCandles, bestProfit)
 
 	return bestConfig

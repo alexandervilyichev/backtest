@@ -148,7 +148,7 @@ func (s *RsiOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) in
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID RSI: период=%d, покупка=%.1f, продажа=%.1f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры RSI: период=%d, покупка=%.1f, продажа=%.1f, профит=%.4f\n",
 		bestConfig.Period, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)
 
 	return bestConfig

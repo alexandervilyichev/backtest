@@ -165,7 +165,7 @@ func (s *StochasticOscillatorStrategy) OptimizeWithConfig(candles []internal.Can
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Stochastic: k=%d, d=%d, buy=%.1f, sell=%.1f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Stochastic: k=%d, d=%d, buy=%.1f, sell=%.1f, профит=%.4f\n",
 		bestConfig.KPeriod, bestConfig.DPeriod, bestConfig.BuyLevel, bestConfig.SellLevel, bestProfit)
 
 	return bestConfig

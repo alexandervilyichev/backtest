@@ -203,7 +203,7 @@ func (s *UlcerIndexStrategy) OptimizeWithConfig(candles []internal.Candle) inter
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Ulcer Index: period=%d, buy=%.4f, sell=%.4f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Ulcer Index: period=%d, buy=%.4f, sell=%.4f, профит=%.4f\n",
 		bestConfig.Period, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)
 
 	return bestConfig

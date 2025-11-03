@@ -111,7 +111,7 @@ func (ewa *ElliottWaveAnalyzer) findSignificantExtrema(prices []float64) {
 
 	// Используем более мягкий алгоритм поиска экстремумов
 	lookback := ewa.minWaveLength
-	
+
 	for i := lookback; i < len(prices)-lookback; i++ {
 		// Проверяем локальный максимум
 		isLocalMax := true
@@ -143,7 +143,7 @@ func (ewa *ElliottWaveAnalyzer) findSignificantExtrema(prices []float64) {
 					maxInWindow = prices[j]
 				}
 			}
-			
+
 			strength := maxInWindow - minInWindow
 
 			point := WavePoint{
@@ -292,7 +292,7 @@ func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64
 	// Находим ближайшую волновую точку
 	var lastWavePoint *WavePoint
 	var prevWavePoint *WavePoint
-	
+
 	for i := len(ewa.wavePoints) - 1; i >= 0; i-- {
 		if ewa.wavePoints[i].Index <= currentIndex {
 			lastWavePoint = &ewa.wavePoints[i]
@@ -308,10 +308,10 @@ func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64
 	}
 
 	currentPrice := prices[currentIndex]
-	
+
 	// Расстояние от последней волновой точки
 	distanceFromWave := currentIndex - lastWavePoint.Index
-	
+
 	// Не генерируем сигналы слишком близко к волновой точке
 	if distanceFromWave < 3 {
 		return internal.HOLD
@@ -352,7 +352,6 @@ type ElliottWaveStrategy struct{}
 func (s *ElliottWaveStrategy) Name() string {
 	return "elliott_wave"
 }
-
 
 func (s *ElliottWaveStrategy) DefaultConfig() internal.StrategyConfig {
 	return &ElliottWaveConfig{
@@ -402,7 +401,7 @@ func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 
 	for i := 20; i < len(candles); i++ {
 		signal := analyzer.predictSignal(i, prices)
-		
+
 		// Проверяем минимальное расстояние между сигналами
 		if lastSignalIndex >= 0 && i-lastSignalIndex < minSignalDistance {
 			signals[i] = internal.HOLD
@@ -463,7 +462,7 @@ func (s *ElliottWaveStrategy) OptimizeWithConfig(candles []internal.Candle) inte
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID волн Эллиотта: min_len=%d, max_len=%d, fib_thresh=%.3f, trend_str=%.1f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры волн Эллиотта: min_len=%d, max_len=%d, fib_thresh=%.3f, trend_str=%.1f, профит=%.4f\n",
 		bestConfig.MinWaveLength, bestConfig.MaxWaveLength, bestConfig.FibonacciThreshold,
 		bestConfig.TrendStrength, bestProfit)
 

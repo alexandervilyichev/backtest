@@ -246,7 +246,7 @@ func (s *OBVStrategy) OptimizeWithConfig(candles []internal.Candle) internal.Str
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID OBV: period=%d, multiplier=%.2f, use_div=%t, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры OBV: period=%d, multiplier=%.2f, use_div=%t, профит=%.4f\n",
 		bestConfig.Period, bestConfig.Multiplier, bestConfig.UseDivergence, bestProfit)
 
 	return bestConfig

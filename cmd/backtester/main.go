@@ -141,7 +141,7 @@ func main() {
 
 // parseFlags — парсит командную строку и возвращает конфигурацию
 func parseFlags() backtester.Config {
-	filename := flag.String("file", "C:/Users/alexa/OneDrive/Документы/Projects/backtest/candles.json", "Путь к JSON-файлу со свечами")
+	filename := flag.String("file", "candles.json", "Путь к JSON-файлу со свечами")
 	strategyName := flag.String("strategy", "all", "Стратегия: all (все стратегии) или "+strings.Join(internal.GetStrategyNames(), ", "))
 	debug := flag.Bool("debug", false, "Включить детальное логирование")
 	saveSignals := flag.Int("save_signals", 0, "Сохранить топ-N стратегий с сигналами (0 = не сохранять)")
@@ -197,6 +197,10 @@ func runStrategies(config backtester.Config, runner backtester.StrategyRunner, c
 			ExecutionTime:  mainResult.ExecutionTime, // Используем то же время для простоты
 		},
 	}
+
+	// Выводим результаты через принтер для одиночной стратегии
+	printer := backtester.NewCombinedPrinter()
+	printer.PrintComparison(results)
 
 	return results, nil
 }

@@ -145,7 +145,7 @@ func (s *VolumeBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle) i
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Volume Breakout: multiplier=%.2f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Volume Breakout: multiplier=%.2f, профит=%.4f\n",
 		bestConfig.Multiplier, bestProfit)
 
 	return bestConfig

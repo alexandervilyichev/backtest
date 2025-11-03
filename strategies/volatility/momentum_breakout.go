@@ -294,7 +294,7 @@ func (s *MomentumBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle)
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID Momentum Breakout: period=%d, threshold=%.3f, vol_mult=%.1f, vol_filt=%.3f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры Momentum Breakout: period=%d, threshold=%.3f, vol_mult=%.1f, vol_filt=%.3f, профит=%.4f\n",
 		bestConfig.MomentumPeriod, bestConfig.BreakoutThreshold, bestConfig.VolumeMultiplier,
 		bestConfig.VolatilityFilter, bestProfit)
 

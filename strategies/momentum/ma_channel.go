@@ -172,7 +172,7 @@ func (s *MAChannelStrategy) OptimizeWithConfig(candles []internal.Candle) intern
 		}
 	}
 
-	fmt.Printf("Лучшие параметры SOLID MA Channel: fast=%d, slow=%d, multiplier=%.2f, профит=%.4f\n",
+	fmt.Printf("Лучшие параметры MA Channel: fast=%d, slow=%d, multiplier=%.2f, профит=%.4f\n",
 		bestConfig.FastPeriod, bestConfig.SlowPeriod, bestConfig.Multiplier, bestProfit)
 
 	return bestConfig
