@@ -1,22 +1,8 @@
 # Advanced Candle Predictor API
 
-REST API для прогнозирования цен с использованием различных моделей машинного обучения и стохастических процессов.
+REST API для прогнозирования цен с использованием различных моделей машинного обучения.
 
-## Возможности
 
-### LSTM модель
-- Обучение LSTM модели на исторических данных свечей
-- Предсказание следующих N свечей
-- Гибкая конфигурация через YAML файл с автоматической перезагрузкой
-- Выбор подмножества полей свечи для обучения
-- Callback'и для раннего выхода, логирования и адаптации скорости обучения
-
-### Модели броуновского движения
-- **Модель Heston** - стохастическая волатильность с корреляцией
-- **GARCH(1,1)** - условная волатильность с ARCH/GARCH эффектами
-- **Геометрическое броуновское движение** - классическая модель с переменной волатильностью
-- Симуляции Монте-Карло для прогнозирования
-- Генерация торговых сигналов на основе вероятностных прогнозов
 
 ## Установка
 
@@ -27,7 +13,7 @@ pip install -r requirements.txt
 
 2. Запустите API:
 ```bash
-python flask_main.py
+python main.py
 ```
 
 API будет доступен по адресу: http://localhost:8000
@@ -138,25 +124,6 @@ API будет доступен по адресу: http://localhost:8000
 }
 ```
 
-#### POST /brownian/signals
-Генерация торговых сигналов на основе стохастических моделей
-
-Пример запроса:
-```json
-{
-  "candles": [...],
-  "model_type": "garch",
-  "threshold": 0.02,
-  "config": {
-    "window_size": 100,
-    "num_simulations": 500
-  }
-}
-```
-
-#### GET /brownian/models
-Получить список доступных моделей броуновского движения
-
 ### Общие эндпоинты
 
 #### GET /config
@@ -172,12 +139,9 @@ candle_api/
 ├── main.py                      # Flask приложение
 ├── models.py                    # Pydantic модели для API
 ├── lstm_model.py                # LSTM модель для предсказания
-├── brownian_motion_model.py     # Модели броуновского движения
 ├── config_manager.py            # Управление конфигурацией
 ├── config.yaml                  # Файл конфигурации
 ├── requirements.txt             # Зависимости Python
-├── example_brownian_usage.py    # Пример использования API
-├── BROWNIAN_MOTION_GUIDE.md     # Подробное руководство
 ├── models/                      # Директория для сохранения моделей
 └── README.md                   # Документация
 ```
@@ -225,56 +189,3 @@ response = requests.post("http://localhost:8000/predict", json={
     "prediction_steps": 10
 })
 ```
-
-### Модели броуновского движения
-
-#### Прогнозирование с моделью Heston:
-
-```python
-import requests
-
-response = requests.post("http://localhost:8000/brownian/predict", json={
-    "candles": candles_data,
-    "model_type": "heston",
-    "config": {
-        "window_size": 150,
-        "prediction_steps": 10,
-        "num_simulations": 2000
-    }
-})
-
-prediction = response.json()["prediction"]
-print(f"Ожидаемая цена: {prediction['predicted_price']}")
-print(f"Вероятность роста: {prediction['probability_up']:.2%}")
-```
-
-#### Генерация торговых сигналов:
-
-```python
-response = requests.post("http://localhost:8000/brownian/signals", json={
-    "candles": candles_data,
-    "model_type": "garch",
-    "threshold": 0.015
-})
-
-signals = response.json()["signals"]
-print(f"Последние сигналы: {signals[-10:]}")
-```
-
-#### Запуск примера:
-
-```bash
-python example_brownian_usage.py
-```
-
-## Документация
-
-- [Подробное руководство по моделям броуновского движения](BROWNIAN_MOTION_GUIDE.md)
-- [Конфигурация и параметры](config.yaml)
-
-## Go стратегии
-
-В папке `../strategies/` также реализованы стратегии для Go бэктестера:
-
-- `statistical/brownian_motion_strategy.go` - стратегия броуновского движения
-- `volatility/garch_volatility_strategy.go` - стратегия на основе GARCH волатильности
