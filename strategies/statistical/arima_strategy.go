@@ -428,7 +428,7 @@ func (s *ARIMAStrategy) generateEnhancedSignal(currentPrice, forecastPrice, thre
 	expectedChange := (forecastPrice - currentPrice) / currentPrice
 
 	// Адаптируем порог на основе рыночных условий
-	volatility := internal.CalculateStdDevOfReturns(prices[intMax(0, currentIndex-30):currentIndex])
+	volatility := internal.CalculateStdDevOfReturns(prices[max(0, currentIndex-30):currentIndex])
 	adaptiveThreshold := threshold + volatility*0.3
 
 	// BUY: ожидаем рост цены выше порога
@@ -524,14 +524,14 @@ func (s *ARIMAStrategy) GenerateSignalsWithConfig(candles []internal.Candle, con
 		currentPrice := prices[i]
 
 		// Адаптивный порог
-		volatility := internal.CalculateStdDevOfReturns(prices[intMax(0, i-50):i])
+		volatility := internal.CalculateStdDevOfReturns(prices[max(0, i-50):i])
 		adaptiveThreshold := baseThreshold + volatility*0.5
 
 		// Сигнал
 		signal := s.generateEnhancedSignal(currentPrice, forecast, adaptiveThreshold, prices, i)
 
 		// Фильтр тренда
-		trendStrength := s.calculateTrendStrength(prices[intMax(0, i-20):i])
+		trendStrength := s.calculateTrendStrength(prices[max(0, i-20):i])
 		trendThreshold := 0.02
 
 		if !inPosition && signal == internal.BUY && trendStrength > -trendThreshold && i-lastTradeIndex >= minHoldBars {
@@ -584,14 +584,6 @@ func (s *ARIMAStrategy) OptimizeWithConfig(candles []internal.Candle) internal.S
 		bestConfig.ArOrder, bestConfig.DiffOrder, bestConfig.MaOrder, bestProfit)
 
 	return bestConfig
-}
-
-// вспомогательная функция для int max
-func intMax(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func init() {

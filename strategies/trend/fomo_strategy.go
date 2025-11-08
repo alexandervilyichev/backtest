@@ -12,39 +12,39 @@ import (
 // when seeing rapid price movements with high volume and momentum
 type FOMOConfig struct {
 	// Lookback periods for calculating averages
-	VolumeLookback    int     `json:"volume_lookback"`     // Period for volume average
-	MomentumLookback  int     `json:"momentum_lookback"`   // Period for momentum calculation
-	VolatilityLookback int    `json:"volatility_lookback"` // Period for volatility calculation
-	
+	VolumeLookback     int `json:"volume_lookback"`     // Period for volume average
+	MomentumLookback   int `json:"momentum_lookback"`   // Period for momentum calculation
+	VolatilityLookback int `json:"volatility_lookback"` // Period for volatility calculation
+
 	// FOMO trigger thresholds
-	VolumeSpike       float64 `json:"volume_spike"`        // Volume must be X times average
-	MomentumThreshold float64 `json:"momentum_threshold"`  // Minimum momentum for FOMO
-	VolatilityBoost   float64 `json:"volatility_boost"`    // Volatility multiplier for FOMO
-	
+	VolumeSpike       float64 `json:"volume_spike"`       // Volume must be X times average
+	MomentumThreshold float64 `json:"momentum_threshold"` // Minimum momentum for FOMO
+	VolatilityBoost   float64 `json:"volatility_boost"`   // Volatility multiplier for FOMO
+
 	// Psychological factors
-	ConsecutiveBars   int     `json:"consecutive_bars"`    // Consecutive moves to trigger FOMO
-	FearDecay         float64 `json:"fear_decay"`          // How quickly FOMO fear decays
-	GreedMultiplier   float64 `json:"greed_multiplier"`    // Amplifies signals during strong trends
-	
+	ConsecutiveBars int     `json:"consecutive_bars"` // Consecutive moves to trigger FOMO
+	FearDecay       float64 `json:"fear_decay"`       // How quickly FOMO fear decays
+	GreedMultiplier float64 `json:"greed_multiplier"` // Amplifies signals during strong trends
+
 	// Risk management
-	MaxFOMOStrength   float64 `json:"max_fomo_strength"`   // Cap on FOMO intensity
-	CooldownPeriod    int     `json:"cooldown_period"`     // Bars to wait after FOMO signal
+	MaxFOMOStrength float64 `json:"max_fomo_strength"` // Cap on FOMO intensity
+	CooldownPeriod  int     `json:"cooldown_period"`   // Bars to wait after FOMO signal
 }
 
 // DefaultConfig returns default configuration
 func (c *FOMOStrategy) DefaultConfig() internal.StrategyConfig {
 	return &FOMOConfig{
-		VolumeLookback:    20,
-		MomentumLookback:  10,
+		VolumeLookback:     20,
+		MomentumLookback:   10,
 		VolatilityLookback: 15,
-		VolumeSpike:       1.8,  // Volume must be 1.8x average (баланс)
-		MomentumThreshold: 0.015, // 1.5% momentum threshold (баланс)
-		VolatilityBoost:   1.3,  // 30% volatility boost
-		ConsecutiveBars:   3,    // 3 consecutive moves (возврат к более строгому)
-		FearDecay:         0.85, // 15% decay per bar
-		GreedMultiplier:   1.4,  // 40% greed amplification
-		MaxFOMOStrength:   4.0,  // Max 4x signal strength
-		CooldownPeriod:    3,    // 3 bar cooldown (средний период)
+		VolumeSpike:        1.8,   // Volume must be 1.8x average (баланс)
+		MomentumThreshold:  0.015, // 1.5% momentum threshold (баланс)
+		VolatilityBoost:    1.3,   // 30% volatility boost
+		ConsecutiveBars:    3,     // 3 consecutive moves (возврат к более строгому)
+		FearDecay:          0.85,  // 15% decay per bar
+		GreedMultiplier:    1.4,   // 40% greed amplification
+		MaxFOMOStrength:    4.0,   // Max 4x signal strength
+		CooldownPeriod:     3,     // 3 bar cooldown (средний период)
 	}
 }
 
@@ -75,7 +75,6 @@ func (c *FOMOConfig) DefaultConfigString() string {
 }
 
 type FOMOStrategy struct {
-	config *FOMOConfig
 }
 
 func (s *FOMOStrategy) Name() string {
@@ -98,43 +97,43 @@ func (s *FOMOStrategy) GenerateSignalsWithConfig(candles []internal.Candle, conf
 	}
 
 	signals := make([]internal.SignalType, len(candles))
-	
+
 	// Pre-calculate indicators
 	volumeMA := s.calculateVolumeMA(candles, fomoConfig.VolumeLookback)
 	momentum := s.calculateMomentum(candles, fomoConfig.MomentumLookback)
 	volatility := s.calculateVolatility(candles, fomoConfig.VolatilityLookback)
-	
+
 	// Initialize FOMO state
 	state := &FOMOState{}
-	
+
 	maxLookback := max(max(fomoConfig.VolumeLookback, fomoConfig.MomentumLookback), fomoConfig.VolatilityLookback)
-	
+
 	for i := range candles {
 		// Skip early periods where calculations aren't possible
 		if i < maxLookback {
 			signals[i] = internal.HOLD
 			continue
 		}
-		
+
 		// Update psychological state
 		s.updatePsychologicalState(candles, i, state, fomoConfig)
-		
+
 		// Check cooldown period
 		if i-state.lastSignalBar < fomoConfig.CooldownPeriod {
 			signals[i] = internal.HOLD
 			continue
 		}
-		
+
 		// Calculate FOMO strength
 		fomoStrength := s.calculateFOMOStrength(candles, i, volumeMA, momentum, volatility, state, fomoConfig)
-		
+
 		// Generate signal based on FOMO strength and market conditions
 		signal := s.generateFOMOSignal(candles, i, fomoStrength, state, fomoConfig)
-		
+
 		if signal != internal.HOLD {
 			state.lastSignalBar = i
 		}
-		
+
 		signals[i] = signal
 	}
 
@@ -144,7 +143,7 @@ func (s *FOMOStrategy) GenerateSignalsWithConfig(candles []internal.Candle, conf
 // calculateVolumeMA calculates volume moving average
 func (s *FOMOStrategy) calculateVolumeMA(candles []internal.Candle, period int) []float64 {
 	volumeMA := make([]float64, len(candles))
-	
+
 	for i := range candles {
 		if i >= period-1 {
 			var sum float64
@@ -154,14 +153,14 @@ func (s *FOMOStrategy) calculateVolumeMA(candles []internal.Candle, period int) 
 			volumeMA[i] = sum / float64(period)
 		}
 	}
-	
+
 	return volumeMA
 }
 
 // calculateMomentum calculates price momentum
 func (s *FOMOStrategy) calculateMomentum(candles []internal.Candle, period int) []float64 {
 	momentum := make([]float64, len(candles))
-	
+
 	for i := range candles {
 		if i >= period {
 			current := candles[i].Close.ToFloat64()
@@ -169,20 +168,20 @@ func (s *FOMOStrategy) calculateMomentum(candles []internal.Candle, period int) 
 			momentum[i] = (current - previous) / previous
 		}
 	}
-	
+
 	return momentum
 }
 
 // calculateVolatility calculates price volatility (standard deviation of returns)
 func (s *FOMOStrategy) calculateVolatility(candles []internal.Candle, period int) []float64 {
 	volatility := make([]float64, len(candles))
-	
+
 	for i := range candles {
 		if i >= period {
 			// Calculate returns
 			returns := make([]float64, period)
 			var meanReturn float64
-			
+
 			for j := 0; j < period; j++ {
 				idx := i - period + 1 + j
 				if idx > 0 {
@@ -191,7 +190,7 @@ func (s *FOMOStrategy) calculateVolatility(candles []internal.Candle, period int
 				}
 			}
 			meanReturn /= float64(period)
-			
+
 			// Calculate standard deviation
 			var variance float64
 			for _, ret := range returns {
@@ -200,7 +199,7 @@ func (s *FOMOStrategy) calculateVolatility(candles []internal.Candle, period int
 			volatility[i] = math.Sqrt(variance / float64(period))
 		}
 	}
-	
+
 	return volatility
 }
 
@@ -209,10 +208,10 @@ func (s *FOMOStrategy) updatePsychologicalState(candles []internal.Candle, i int
 	if i == 0 {
 		return
 	}
-	
+
 	currentPrice := candles[i].Close.ToFloat64()
 	previousPrice := candles[i-1].Close.ToFloat64()
-	
+
 	// Update consecutive moves
 	if currentPrice > previousPrice {
 		state.consecutiveUp++
@@ -225,7 +224,7 @@ func (s *FOMOStrategy) updatePsychologicalState(candles []internal.Candle, i int
 		state.consecutiveUp = 0
 		state.consecutiveDown = 0
 	}
-	
+
 	// Update fear level - только при достижении полных последовательностей
 	if state.consecutiveUp >= config.ConsecutiveBars {
 		state.fearLevel = math.Min(1.0, state.fearLevel+0.3) // Fear of missing upward move
@@ -234,7 +233,7 @@ func (s *FOMOStrategy) updatePsychologicalState(candles []internal.Candle, i int
 	} else {
 		state.fearLevel *= config.FearDecay // Decay fear over time
 	}
-	
+
 	// Update greed level - только при значительных изменениях цены
 	priceChange := math.Abs((currentPrice - previousPrice) / previousPrice)
 	if priceChange > config.MomentumThreshold {
@@ -242,7 +241,7 @@ func (s *FOMOStrategy) updatePsychologicalState(candles []internal.Candle, i int
 	} else {
 		state.greedLevel *= config.FearDecay // Use same decay rate
 	}
-	
+
 	// Убираем базовые уровни - эмоции должны накапливаться естественно
 	state.fearLevel = math.Max(0.0, state.fearLevel)
 	state.greedLevel = math.Max(0.0, state.greedLevel)
@@ -258,42 +257,42 @@ func (s *FOMOStrategy) calculateFOMOStrength(candles []internal.Candle, i int, v
 			volumeSpikeFactor = math.Min(2.0, volumeRatio/config.VolumeSpike)
 		}
 	}
-	
+
 	// Momentum factor - строгий расчет
 	momentumFactor := 0.0
 	if math.Abs(momentum[i]) >= config.MomentumThreshold {
 		momentumFactor = math.Min(2.0, math.Abs(momentum[i])/config.MomentumThreshold)
 	}
-	
+
 	// Volatility boost
 	volatilityFactor := 1.0
 	if volatility[i] > 0 {
 		volatilityFactor = 1.0 + (volatility[i] * config.VolatilityBoost)
 	}
-	
+
 	// Psychological factors - требуют накопленных эмоций
 	psychologicalFactor := (state.fearLevel + state.greedLevel) / 2.0
-	
+
 	// Consecutive moves amplification - только для полных последовательностей
 	consecutiveFactor := 1.0
 	consecutiveCount := max(state.consecutiveUp, state.consecutiveDown)
 	if consecutiveCount >= config.ConsecutiveBars {
 		consecutiveFactor = 1.0 + float64(consecutiveCount-config.ConsecutiveBars+1)*0.5
 	}
-	
+
 	// Возвращаемся к умножению для более строгих условий
 	// Все основные факторы должны быть > 0 для генерации сигнала
 	if volumeSpikeFactor == 0.0 || momentumFactor == 0.0 || psychologicalFactor < 0.3 {
 		return 0.0
 	}
-	
+
 	fomoStrength := volumeSpikeFactor * momentumFactor * volatilityFactor * psychologicalFactor * consecutiveFactor
-	
+
 	// Apply greed multiplier during strong trends
 	if momentum[i] > config.MomentumThreshold*2.0 {
 		fomoStrength *= config.GreedMultiplier
 	}
-	
+
 	// Cap the maximum FOMO strength
 	return math.Min(config.MaxFOMOStrength, fomoStrength)
 }
@@ -303,29 +302,29 @@ func (s *FOMOStrategy) generateFOMOSignal(candles []internal.Candle, i int, fomo
 	if i == 0 {
 		return internal.HOLD
 	}
-	
+
 	currentPrice := candles[i].Close.ToFloat64()
 	previousPrice := candles[i-1].Close.ToFloat64()
-	
+
 	// Высокий порог для качественных сигналов
 	minFOMOThreshold := 1.5
-	
+
 	// Require minimum FOMO strength to generate signal
 	if fomoStrength < minFOMOThreshold {
 		return internal.HOLD
 	}
-	
+
 	// Основные FOMO сигналы - строгие условия
 	if state.consecutiveUp >= config.ConsecutiveBars && currentPrice > previousPrice && fomoStrength >= 2.0 {
 		// FOMO buy signal - fear of missing upward trend
 		return internal.BUY
 	}
-	
+
 	if state.consecutiveDown >= config.ConsecutiveBars && currentPrice < previousPrice && fomoStrength >= 2.0 {
 		// FOMO sell signal - fear of missing downward trend
 		return internal.SELL
 	}
-	
+
 	// Экстремальные FOMO условия - только при очень высокой силе
 	if fomoStrength >= config.MaxFOMOStrength*0.8 {
 		if currentPrice > previousPrice && state.consecutiveUp >= config.ConsecutiveBars-1 {
@@ -334,37 +333,37 @@ func (s *FOMOStrategy) generateFOMOSignal(candles []internal.Candle, i int, fomo
 			return internal.SELL
 		}
 	}
-	
+
 	return internal.HOLD
 }
 
 func (s *FOMOStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
 	bestConfig := s.DefaultConfig().(*FOMOConfig)
-	
+
 	// Test different parameter combinations for psychological FOMO factors
 	for _, volumeSpike := range []float64{1.5, 2.0, 2.5, 3.0} {
 		for _, momentumThreshold := range []float64{0.01, 0.02, 0.03, 0.05} {
 			for _, consecutiveBars := range []int{2, 3, 4, 5} {
 				for _, fearDecay := range []float64{0.7, 0.8, 0.9} {
 					config := &FOMOConfig{
-						VolumeLookback:    20,
-						MomentumLookback:  10,
+						VolumeLookback:     20,
+						MomentumLookback:   10,
 						VolatilityLookback: 15,
-						VolumeSpike:       volumeSpike,
-						MomentumThreshold: momentumThreshold,
-						VolatilityBoost:   1.5,
-						ConsecutiveBars:   consecutiveBars,
-						FearDecay:         fearDecay,
-						GreedMultiplier:   1.3,
-						MaxFOMOStrength:   3.0,
-						CooldownPeriod:    5,
+						VolumeSpike:        volumeSpike,
+						MomentumThreshold:  momentumThreshold,
+						VolatilityBoost:    1.5,
+						ConsecutiveBars:    consecutiveBars,
+						FearDecay:          fearDecay,
+						GreedMultiplier:    1.3,
+						MaxFOMOStrength:    3.0,
+						CooldownPeriod:     5,
 					}
 
 					signals := s.GenerateSignalsWithConfig(candles, config)
-					
+
 					// Evaluate performance based on FOMO-specific metrics
 					score := s.evaluateFOMOPerformance(candles, signals)
-					
+
 					// Update best config if this performs better
 					if score > s.evaluateFOMOPerformance(candles, s.GenerateSignalsWithConfig(candles, bestConfig)) {
 						bestConfig = config
@@ -382,19 +381,19 @@ func (s *FOMOStrategy) evaluateFOMOPerformance(candles []internal.Candle, signal
 	if len(candles) != len(signals) || len(candles) < 2 {
 		return 0.0
 	}
-	
+
 	var totalReturn float64 = 1.0
 	var signalCount int
 	var correctSignals int
-	
+
 	for i := 1; i < len(candles); i++ {
 		if signals[i-1] == internal.HOLD {
 			continue
 		}
-		
+
 		signalCount++
 		currentReturn := (candles[i].Close.ToFloat64() - candles[i-1].Close.ToFloat64()) / candles[i-1].Close.ToFloat64()
-		
+
 		// Apply signal direction
 		if signals[i-1] == internal.BUY && currentReturn > 0 {
 			totalReturn *= (1.0 + currentReturn)
@@ -407,13 +406,13 @@ func (s *FOMOStrategy) evaluateFOMOPerformance(candles []internal.Candle, signal
 			totalReturn *= (1.0 - math.Abs(currentReturn)*0.5)
 		}
 	}
-	
+
 	// Calculate accuracy
 	accuracy := 0.0
 	if signalCount > 0 {
 		accuracy = float64(correctSignals) / float64(signalCount)
 	}
-	
+
 	// Combine return and accuracy with preference for accuracy (FOMO should be precise)
 	return (totalReturn-1.0)*0.3 + accuracy*0.7
 }

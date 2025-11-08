@@ -43,7 +43,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 )
 
 type ElliottWaveConfig struct {
@@ -249,39 +248,39 @@ func (ewa *ElliottWaveAnalyzer) identifyWavePattern() []WavePoint {
 }
 
 // checkFibonacciRatio проверяет отношения Фибоначчи между волнами
-func (ewa *ElliottWaveAnalyzer) checkFibonacciRatio() bool {
-	if len(ewa.wavePoints) < 5 {
-		return false
-	}
+// func (ewa *ElliottWaveAnalyzer) checkFibonacciRatio() bool {
+// 	if len(ewa.wavePoints) < 5 {
+// 		return false
+// 	}
 
-	// Проверяем отношение волны 2 к волне 1 (должно быть около 0.618)
-	if len(ewa.wavePoints) >= 2 {
-		wave1 := math.Abs(ewa.wavePoints[1].Price - ewa.wavePoints[0].Price)
-		wave2 := math.Abs(ewa.wavePoints[2].Price - ewa.wavePoints[1].Price)
+// 	// Проверяем отношение волны 2 к волне 1 (должно быть около 0.618)
+// 	if len(ewa.wavePoints) >= 2 {
+// 		wave1 := math.Abs(ewa.wavePoints[1].Price - ewa.wavePoints[0].Price)
+// 		wave2 := math.Abs(ewa.wavePoints[2].Price - ewa.wavePoints[1].Price)
 
-		if wave1 > 0 {
-			ratio := wave2 / wave1
-			if math.Abs(ratio-0.618) < ewa.fibThreshold {
-				return true
-			}
-		}
-	}
+// 		if wave1 > 0 {
+// 			ratio := wave2 / wave1
+// 			if math.Abs(ratio-0.618) < ewa.fibThreshold {
+// 				return true
+// 			}
+// 		}
+// 	}
 
-	// Проверяем отношение волны 4 к волне 3
-	if len(ewa.wavePoints) >= 4 {
-		wave3 := math.Abs(ewa.wavePoints[3].Price - ewa.wavePoints[2].Price)
-		wave4 := math.Abs(ewa.wavePoints[4].Price - ewa.wavePoints[3].Price)
+// 	// Проверяем отношение волны 4 к волне 3
+// 	if len(ewa.wavePoints) >= 4 {
+// 		wave3 := math.Abs(ewa.wavePoints[3].Price - ewa.wavePoints[2].Price)
+// 		wave4 := math.Abs(ewa.wavePoints[4].Price - ewa.wavePoints[3].Price)
 
-		if wave3 > 0 {
-			ratio := wave4 / wave3
-			if math.Abs(ratio-0.382) < ewa.fibThreshold || math.Abs(ratio-0.618) < ewa.fibThreshold {
-				return true
-			}
-		}
-	}
+// 		if wave3 > 0 {
+// 			ratio := wave4 / wave3
+// 			if math.Abs(ratio-0.382) < ewa.fibThreshold || math.Abs(ratio-0.618) < ewa.fibThreshold {
+// 				return true
+// 			}
+// 		}
+// 	}
 
-	return false
-}
+// 	return false
+// }
 
 // predictSignal генерирует торговый сигнал на основе волнового анализа
 func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64) internal.SignalType {

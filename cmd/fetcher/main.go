@@ -82,7 +82,10 @@ func main() {
 		if err != nil {
 			log.Printf("❌ HTTP ошибка при запросе: %v", err)
 			log.Println("💾 Сохраняю накопленные данные перед выходом...")
-			saveCandlesToFile(allCandles)
+			err = saveCandlesToFile(allCandles)
+			if err != nil {
+				log.Fatal("❌ Невозможно сохранить свечи в файл")
+			}
 			log.Fatal("🛑 Прервано из-за сетевой ошибки")
 		}
 		defer resp.Body.Close()
@@ -91,7 +94,10 @@ func main() {
 		if err != nil {
 			log.Printf("❌ Ошибка чтения тела ответа: %v", err)
 			log.Println("💾 Сохраняю накопленные данные перед выходом...")
-			saveCandlesToFile(allCandles)
+			err = saveCandlesToFile(allCandles)
+			if err != nil {
+				log.Fatal("❌ Невозможно сохранить свечи в файл")
+			}
 			log.Fatal("🛑 Прервано из-за ошибки чтения ответа")
 		}
 
@@ -112,7 +118,10 @@ func main() {
 		if err := json.Unmarshal(body, &response); err != nil {
 			log.Printf("❌ Ошибка парсинга JSON: %v", err)
 			log.Println("💾 Сохраняю накопленные данные перед выходом...")
-			saveCandlesToFile(allCandles)
+			err = saveCandlesToFile(allCandles)
+			if err != nil {
+				log.Fatal("❌ Невозможно сохранить свечи в файл")
+			}
 			log.Fatal("🛑 Прервано из-за ошибки парсинга ответа")
 		}
 
@@ -132,7 +141,10 @@ func main() {
 		processedCount := len(allCandles)
 
 		// 🚨 КЛЮЧЕВОЙ ШАГ: сохраняем ВСЁ в файл сразу после успешного запроса
-		saveCandlesToFile(allCandles)
+		err = saveCandlesToFile(allCandles)
+		if err != nil {
+			log.Fatal("❌ Невозможно сохранить свечи в файл")
+		}
 
 		// Сдвигаем верхнюю границу на самую старую свечу
 		oldestCandleTime, err := time.Parse(time.RFC3339, candles[0].Time)

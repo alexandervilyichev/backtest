@@ -16,9 +16,15 @@ var Cache sync.Map
 
 func keyFor(typeAlgo string, typeInput string, period int) string {
 	var buf bytes.Buffer
-	binary.Write(&buf, binary.LittleEndian, typeAlgo)
-	binary.Write(&buf, binary.LittleEndian, typeInput)
-	binary.Write(&buf, binary.LittleEndian, int64(period))
+	if err := binary.Write(&buf, binary.LittleEndian, typeAlgo); err != nil {
+		panic(err)
+	}
+	if err := binary.Write(&buf, binary.LittleEndian, typeInput); err != nil {
+		panic(err)
+	}
+	if err := binary.Write(&buf, binary.LittleEndian, int64(period)); err != nil {
+		panic(err)
+	}
 
 	hash := md5.Sum(buf.Bytes())
 	return hex.EncodeToString(hash[:])

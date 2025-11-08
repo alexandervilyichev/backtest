@@ -24,7 +24,6 @@ import (
 	"log"
 	"math"
 	"math/rand"
-	"time"
 )
 
 type HestonConfig struct {
@@ -100,8 +99,6 @@ func calibrateHeston(prices []float64) *HestonModel {
 
 // simulateHeston выполняет симуляцию Монте-Карло для модели Heston
 func (model *HestonModel) simulateHeston(steps int, dt float64, numSims int) [][]float64 {
-	rand.Seed(time.Now().UnixNano())
-
 	simulations := make([][]float64, numSims)
 
 	for sim := 0; sim < numSims; sim++ {
@@ -245,7 +242,7 @@ func (s *HestonStrategy) GenerateSignalsWithConfig(candles []internal.Candle, co
 		expectedReturn := (meanForecast - currentPrice) / currentPrice
 
 		// Более мягкий адаптивный порог
-		volatility := internal.CalculateStdDevOfReturns(prices[intMax(0, i-20):i])
+		volatility := internal.CalculateStdDevOfReturns(prices[max(0, i-20):i])
 		adaptiveThreshold := hestonConfig.Threshold * (1 + volatility*0.3) // Менее агрессивная адаптация
 
 		// Дополнительные сигналы на основе волатильности прогноза
