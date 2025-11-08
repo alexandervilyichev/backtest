@@ -7,9 +7,8 @@ import (
 )
 
 type QuadraticVariableTrendSplineConfig struct {
-	MinSegmentLength int     `json:"min_segment_length"`
-	MaxSegmentLength int     `json:"max_segment_length"`
-	MinSlope         float64 `json:"min_slope"`
+	MinSegmentLength int `json:"min_segment_length"`
+	MaxSegmentLength int `json:"max_segment_length"`
 }
 
 func (c *QuadraticVariableTrendSplineConfig) Validate() error {
@@ -19,15 +18,13 @@ func (c *QuadraticVariableTrendSplineConfig) Validate() error {
 	if c.MaxSegmentLength < c.MinSegmentLength {
 		c.MaxSegmentLength = c.MinSegmentLength * 2
 	}
-	if c.MinSlope < 0 {
-		c.MinSlope = 0.001
-	}
+
 	return nil
 }
 
 func (c *QuadraticVariableTrendSplineConfig) DefaultConfigString() string {
-	return fmt.Sprintf("QuadraticVariableTrendSpline(min_segment_length=%d, max_segment_length=%d, min_slope=%.4f)",
-		c.MinSegmentLength, c.MaxSegmentLength, c.MinSlope)
+	return fmt.Sprintf("QuadraticVariableTrendSpline(min_segment_length=%d, max_segment_length=%d)",
+		c.MinSegmentLength, c.MaxSegmentLength)
 }
 
 type QuadraticSplineSegment struct {
@@ -50,7 +47,6 @@ func (s *QuadraticVariableTrendSplineStrategy) DefaultConfig() internal.Strategy
 	return &QuadraticVariableTrendSplineConfig{
 		MinSegmentLength: 5,
 		MaxSegmentLength: 50,
-		MinSlope:         0.001,
 	}
 }
 
@@ -93,19 +89,14 @@ func (s *QuadraticVariableTrendSplineStrategy) GenerateSignalsWithConfig(candles
 			prevSegment := segments[i-1]
 			currSegment := segments[i]
 
-			// For quadratic, we check the slope at the end of previous segment and start of current
-			prevSlopeAtEnd := s.getSlopeAtX(prevSegment, float64(prevSegment.EndIdx-prevSegment.StartIdx-1))
-			currSlopeAtStart := s.getSlopeAtX(currSegment, 0.0)
-
-			if math.Abs(prevSlopeAtEnd) >= splineConfig.MinSlope && math.Abs(currSlopeAtStart) >= splineConfig.MinSlope {
-				// If previous segment was ascending and current is descending -> SELL signal
-				if prevSegment.IsAscending && !currSegment.IsAscending {
-					signals[changePoint] = internal.SELL
-				} else if !prevSegment.IsAscending && currSegment.IsAscending {
-					// If previous segment was descending and current is ascending -> BUY signal
-					signals[changePoint] = internal.BUY
-				}
+			// If previous segment was ascending and current is descending -> SELL signal
+			if prevSegment.IsAscending && !currSegment.IsAscending {
+				signals[changePoint] = internal.SELL
+			} else if !prevSegment.IsAscending && currSegment.IsAscending {
+				// If previous segment was descending and current is ascending -> BUY signal
+				signals[changePoint] = internal.BUY
 			}
+
 		}
 	}
 
@@ -303,55 +294,46 @@ func (s *QuadraticVariableTrendSplineStrategy) calculateQuadraticR2(y []float64,
 	return 1 - ssRes/ssTot
 }
 
-func (s *QuadraticVariableTrendSplineStrategy) getSlopeAtX(segment QuadraticSplineSegment, x float64) float64 {
-	// Slope is the derivative: d/dx(ax^2 + bx + c) = 2ax + b
-	return 2*segment.A*x + segment.B
-}
-
 func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
 	bestConfig := &QuadraticVariableTrendSplineConfig{
 		MinSegmentLength: 5,
 		MaxSegmentLength: 50,
-		MinSlope:         0.001,
 	}
 	bestProfit := -1.0
 
-	// Grid search over parameter combinations
-	// minLengths := []int{5, 10, 15, 20, 30}
-	// maxLengths := []int{30, 50, 100, 200}
-	minSlopes := []float64{0}
+	// tmos 8 97
+	// tbru 71 414
 
-	for minLen := 4; minLen < 12; minLen += 1 {
+	for minLen := 60; minLen < 80; minLen += 1 {
 
-		for maxLen := 90; maxLen < 100; maxLen += 1 {
+		for maxLen := 400; maxLen < 420; maxLen += 1 {
 			if maxLen < minLen {
 				continue
 			}
-			for _, minSlope := range minSlopes {
-				config := &QuadraticVariableTrendSplineConfig{
-					MinSegmentLength: minLen,
-					MaxSegmentLength: maxLen,
-					MinSlope:         minSlope,
-				}
 
-				if config.Validate() != nil {
-					continue
-				}
-
-				signals := s.GenerateSignalsWithConfig(candles, config)
-				result := internal.Backtest(candles, signals, 0.01)
-
-				// Select configuration with highest profit
-				if result.TotalProfit >= bestProfit {
-					bestProfit = result.TotalProfit
-					bestConfig = config
-				}
+			config := &QuadraticVariableTrendSplineConfig{
+				MinSegmentLength: minLen,
+				MaxSegmentLength: maxLen,
 			}
+
+			if config.Validate() != nil {
+				continue
+			}
+
+			signals := s.GenerateSignalsWithConfig(candles, config)
+			result := internal.Backtest(candles, signals, 0.5)
+
+			// Select configuration with highest profit
+			if result.TotalProfit >= bestProfit {
+				bestProfit = result.TotalProfit
+				bestConfig = config
+			}
+
 		}
 	}
 
-	fmt.Printf("Лучшие параметры Quadratic Variable Trend Spline: min_length=%d, max_length=%d, min_slope=%.4f, профит=%.4f\n",
-		bestConfig.MinSegmentLength, bestConfig.MaxSegmentLength, bestConfig.MinSlope, bestProfit)
+	fmt.Printf("Лучшие параметры Quadratic Variable Trend Spline: min_length=%d, max_length=%d, профит=%.4f\n",
+		bestConfig.MinSegmentLength, bestConfig.MaxSegmentLength, bestProfit)
 
 	return bestConfig
 }
