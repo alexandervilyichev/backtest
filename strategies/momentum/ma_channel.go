@@ -164,7 +164,7 @@ func (s *MAChannelStrategy) OptimizeWithConfig(candles []internal.Candle) intern
 
 				signals := s.GenerateSignalsWithConfig(candles, config)
 				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
-				if result.TotalProfit > bestProfit {
+				if result.TotalProfit >= bestProfit {
 					bestProfit = result.TotalProfit
 					bestConfig = config
 				}

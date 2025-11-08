@@ -321,7 +321,7 @@ func (s *MACDStrategy) OptimizeWithConfig(candles []internal.Candle) internal.St
 							result := internal.Backtest(candles, signals, 0.005) // Уменьшенное проскальзывание
 
 							// Оцениваем только по прибыли
-							if result.TotalProfit > bestProfit {
+							if result.TotalProfit >= bestProfit {
 								bestProfit = result.TotalProfit
 								bestConfig = config
 							}
@@ -343,5 +343,5 @@ func (s *MACDStrategy) OptimizeWithConfig(candles []internal.Candle) internal.St
 }
 
 func init() {
-	internal.RegisterStrategy("macd", &MACDStrategy{})
+	// internal.RegisterStrategy("macd", &MACDStrategy{})
 }

@@ -23,11 +23,11 @@ import (
 )
 
 type GARCHVolatilityConfig struct {
-	WindowSize         int     `json:"window_size"`          // размер окна для калибровки
-	ForecastHorizon    int     `json:"forecast_horizon"`     // горизонт прогноза волатильности
-	VolatilityThreshold float64 `json:"volatility_threshold"` // порог волатильности для сигналов
-	TrendThreshold     float64 `json:"trend_threshold"`      // порог тренда
-	UseVolatilityRegime bool   `json:"use_volatility_regime"` // использовать режимы волатильности
+	WindowSize          int     `json:"window_size"`           // размер окна для калибровки
+	ForecastHorizon     int     `json:"forecast_horizon"`      // горизонт прогноза волатильности
+	VolatilityThreshold float64 `json:"volatility_threshold"`  // порог волатильности для сигналов
+	TrendThreshold      float64 `json:"trend_threshold"`       // порог тренда
+	UseVolatilityRegime bool    `json:"use_volatility_regime"` // использовать режимы волатильности
 }
 
 func (c *GARCHVolatilityConfig) Validate() error {
@@ -47,17 +47,17 @@ func (c *GARCHVolatilityConfig) Validate() error {
 }
 
 func (c *GARCHVolatilityConfig) DefaultConfigString() string {
-	return fmt.Sprintf("GARCH_Vol(window=%d, horizon=%d, vol_thresh=%.3f)", 
+	return fmt.Sprintf("GARCH_Vol(window=%d, horizon=%d, vol_thresh=%.3f)",
 		c.WindowSize, c.ForecastHorizon, c.VolatilityThreshold)
 }
 
 // GARCHVolModel представляет модель GARCH для волатильности
 type GARCHVolModel struct {
-	Omega  float64   // константа (ω)
-	Alpha  float64   // коэффициент ARCH (α)
-	Beta   float64   // коэффициент GARCH (β)
-	Mu     float64   // средняя доходность (μ)
-	Sigma2 []float64 // условная дисперсия
+	Omega   float64   // константа (ω)
+	Alpha   float64   // коэффициент ARCH (α)
+	Beta    float64   // коэффициент GARCH (β)
+	Mu      float64   // средняя доходность (μ)
+	Sigma2  []float64 // условная дисперсия
 	Returns []float64 // доходности
 }
 
@@ -97,7 +97,7 @@ func (model *GARCHVolModel) calibrate(prices []float64) error {
 
 	// Простая калибровка методом моментов
 	unconditionalVar := calculateVariance(centeredReturns, 0)
-	
+
 	// Итеративная оптимизация параметров
 	for iter := 0; iter < 20; iter++ {
 		// Вычисляем условную волатильность
@@ -105,8 +105,8 @@ func (model *GARCHVolModel) calibrate(prices []float64) error {
 		model.Sigma2[0] = unconditionalVar
 
 		for i := 1; i < len(centeredReturns); i++ {
-			model.Sigma2[i] = model.Omega + 
-				model.Alpha*centeredReturns[i-1]*centeredReturns[i-1] + 
+			model.Sigma2[i] = model.Omega +
+				model.Alpha*centeredReturns[i-1]*centeredReturns[i-1] +
 				model.Beta*model.Sigma2[i-1]
 		}
 
@@ -127,10 +127,10 @@ func (model *GARCHVolModel) calibrate(prices []float64) error {
 		if sumOmega > 0 {
 			newAlpha := sumAlpha / sumOmega * 0.1
 			newBeta := sumBeta / sumOmega * 0.85
-			
+
 			// Ограничения для стабильности
 			if newAlpha > 0 && newAlpha < 0.3 && newBeta > 0.5 && newBeta < 0.95 {
-				if newAlpha + newBeta < 0.99 {
+				if newAlpha+newBeta < 0.99 {
 					model.Alpha = newAlpha
 					model.Beta = newBeta
 					model.Omega = unconditionalVar * (1 - model.Alpha - model.Beta)
@@ -139,7 +139,7 @@ func (model *GARCHVolModel) calibrate(prices []float64) error {
 		}
 
 		// Проверяем условие стационарности
-		if model.Alpha + model.Beta >= 1.0 {
+		if model.Alpha+model.Beta >= 1.0 {
 			model.Alpha = 0.1
 			model.Beta = 0.85
 			model.Omega = unconditionalVar * (1 - model.Alpha - model.Beta)
@@ -156,14 +156,14 @@ func (model *GARCHVolModel) forecast(steps int) []float64 {
 	}
 
 	forecasts := make([]float64, steps)
-	
+
 	// Текущая волатильность
 	currentSigma2 := model.Sigma2[len(model.Sigma2)-1]
 	currentReturn := model.Returns[len(model.Returns)-1] - model.Mu
-	
+
 	// Безусловная дисперсия
 	unconditionalVar := model.Omega / (1 - model.Alpha - model.Beta)
-	
+
 	for i := 0; i < steps; i++ {
 		if i == 0 {
 			// Первый шаг: используем последнюю доходность
@@ -174,7 +174,7 @@ func (model *GARCHVolModel) forecast(steps int) []float64 {
 			forecasts[i] = unconditionalVar + persistence*(forecasts[0]-unconditionalVar)
 		}
 	}
-	
+
 	return forecasts
 }
 
@@ -212,7 +212,7 @@ func (s *GARCHVolatilityStrategy) calculateTrendStrength(prices []float64, windo
 
 	recentPrices := prices[len(prices)-window:]
 	n := float64(len(recentPrices))
-	
+
 	// Линейная регрессия для определения тренда
 	sumX := n * (n - 1) / 2
 	sumY := 0.0
@@ -227,7 +227,7 @@ func (s *GARCHVolatilityStrategy) calculateTrendStrength(prices []float64, windo
 
 	slope := (n*sumXY - sumX*sumY) / (n*sumXX - sumX*sumX)
 	avgPrice := sumY / n
-	
+
 	return slope / avgPrice // нормализованный наклон
 }
 
@@ -243,7 +243,7 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 	}
 
 	if len(candles) < garchConfig.WindowSize+50 {
-		log.Printf("⚠️ Недостаточно данных для GARCH Volatility: получено %d свечей, требуется минимум %d", 
+		log.Printf("⚠️ Недостаточно данных для GARCH Volatility: получено %d свечей, требуется минимум %d",
 			len(candles), garchConfig.WindowSize+50)
 		return make([]internal.SignalType, len(candles))
 	}
@@ -261,7 +261,7 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 	log.Printf("   Режимы волатильности: %v", garchConfig.UseVolatilityRegime)
 
 	signals := make([]internal.SignalType, len(candles))
-	
+
 	// Параметры для управления позицией
 	inPosition := false
 	minHoldBars := 2 // уменьшили с 5 до 2 для более активной торговли
@@ -296,19 +296,19 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 
 		// Определяем режим волатильности
 		volRegime := model.getVolatilityRegime(currentVol, avgVol)
-		
+
 		// Вычисляем силу тренда
 		trendStrength := s.calculateTrendStrength(prices, 20)
-		
+
 		// Вычисляем изменение волатильности
 		volChange := (forecastVol - currentVol) / currentVol
-		
+
 		// Отладочная информация только в начале
 		if i == startIndex {
-			log.Printf("🔍 Начало анализа: порог_тренда=%.4f, порог_волат=%.4f", 
+			log.Printf("🔍 Начало анализа: порог_тренда=%.4f, порог_волат=%.4f",
 				garchConfig.TrendThreshold, garchConfig.VolatilityThreshold)
 		}
-		
+
 		// Генерируем сигналы на основе волатильности и тренда
 		signal := internal.HOLD
 
@@ -317,14 +317,14 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 			switch volRegime {
 			case "LOW":
 				// В периоды низкой волатильности следуем тренду (более мягкие условия)
-				if !inPosition && trendStrength > garchConfig.TrendThreshold && 
-				   i-lastTradeIndex >= minHoldBars {
+				if !inPosition && trendStrength > garchConfig.TrendThreshold &&
+					i-lastTradeIndex >= minHoldBars {
 					signal = internal.BUY
 					inPosition = true
 					lastTradeIndex = i
 					log.Printf("📈 BUY (низкая волатильность, тренд=%.4f) на свече %d", trendStrength, i)
 				}
-				
+
 			case "HIGH":
 				// В периоды высокой волатильности - осторожность
 				if inPosition && i-lastTradeIndex >= minHoldBars {
@@ -333,17 +333,17 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 					lastTradeIndex = i
 					log.Printf("📉 SELL (высокая волатильность) на свече %d", i)
 				}
-				
+
 			case "NORMAL":
 				// В нормальные периоды используем прогноз волатильности (упрощенные условия)
-				if !inPosition && volChange < -garchConfig.VolatilityThreshold && 
-				   i-lastTradeIndex >= minHoldBars {
+				if !inPosition && volChange < -garchConfig.VolatilityThreshold &&
+					i-lastTradeIndex >= minHoldBars {
 					signal = internal.BUY
 					inPosition = true
 					lastTradeIndex = i
 					log.Printf("📈 BUY (снижение волатильности=%.4f) на свече %d", volChange, i)
-				} else if inPosition && volChange > garchConfig.VolatilityThreshold && 
-				         i-lastTradeIndex >= minHoldBars {
+				} else if inPosition && volChange > garchConfig.VolatilityThreshold &&
+					i-lastTradeIndex >= minHoldBars {
 					signal = internal.SELL
 					inPosition = false
 					lastTradeIndex = i
@@ -352,14 +352,14 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 			}
 		} else {
 			// Простая стратегия на основе прогноза волатильности (еще более простая)
-			if !inPosition && volChange < -garchConfig.VolatilityThreshold && 
-			   i-lastTradeIndex >= minHoldBars {
+			if !inPosition && volChange < -garchConfig.VolatilityThreshold &&
+				i-lastTradeIndex >= minHoldBars {
 				signal = internal.BUY
 				inPosition = true
 				lastTradeIndex = i
 				log.Printf("📈 BUY (простая: волат=%.4f) на свече %d", volChange, i)
-			} else if inPosition && volChange > garchConfig.VolatilityThreshold && 
-			         i-lastTradeIndex >= minHoldBars {
+			} else if inPosition && volChange > garchConfig.VolatilityThreshold &&
+				i-lastTradeIndex >= minHoldBars {
 				signal = internal.SELL
 				inPosition = false
 				lastTradeIndex = i
@@ -410,8 +410,8 @@ func (s *GARCHVolatilityStrategy) OptimizeWithConfig(candles []internal.Candle) 
 
 						signals := s.GenerateSignalsWithConfig(candles, config)
 						result := internal.Backtest(candles, signals, 0.01)
-						
-						if result.TotalProfit > bestProfit {
+
+						if result.TotalProfit >= bestProfit {
 							bestProfit = result.TotalProfit
 							bestConfig = config
 						}
@@ -422,7 +422,7 @@ func (s *GARCHVolatilityStrategy) OptimizeWithConfig(candles []internal.Candle) 
 	}
 
 	fmt.Printf("Лучшие параметры GARCH Volatility: окно=%d, горизонт=%d, vol_thresh=%.3f, trend_thresh=%.3f, режимы=%v, профит=%.4f\n",
-		bestConfig.WindowSize, bestConfig.ForecastHorizon, bestConfig.VolatilityThreshold, 
+		bestConfig.WindowSize, bestConfig.ForecastHorizon, bestConfig.VolatilityThreshold,
 		bestConfig.TrendThreshold, bestConfig.UseVolatilityRegime, bestProfit)
 
 	return bestConfig
@@ -454,5 +454,5 @@ func calculateVariance(data []float64, mean float64) float64 {
 }
 
 func init() {
-	internal.RegisterStrategy("garch_volatility_strategy", &GARCHVolatilityStrategy{})
+	// internal.RegisterStrategy("garch_volatility_strategy", &GARCHVolatilityStrategy{})
 }

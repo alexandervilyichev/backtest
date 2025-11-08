@@ -294,7 +294,7 @@ func (s *OptimalExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) i
 	if config.Validate() == nil {
 		signals := s.GenerateSignalsWithConfig(candles, config)
 		result := internal.Backtest(candles, signals, 0.01)
-		if result.TotalProfit > bestProfit {
+		if result.TotalProfit >= bestProfit {
 			bestProfit = result.TotalProfit
 			bestConfig = config
 		}

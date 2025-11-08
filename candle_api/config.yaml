@@ -39,28 +39,6 @@ logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-brownian_motion:
-  heston:
-    window_size: 100
-    prediction_steps: 5
-    num_simulations: 1000
-    dt: 0.00396825  # 1/252 (дневной шаг)
-    confidence_level: 0.95
-  
-  garch:
-    window_size: 100
-    prediction_steps: 5
-    num_simulations: 1000
-    dt: 0.00396825
-    confidence_level: 0.95
-  
-  gbm:
-    window_size: 50
-    prediction_steps: 5
-    num_simulations: 1000
-    dt: 0.00396825
-    confidence_level: 0.95
-
 trading_signals:
   threshold: 0.02  # 2% порог для генерации сигналов
   min_probability: 0.6  # минимальная вероятность для BUY сигнала

@@ -24,6 +24,7 @@ import (
 	_ "bt/strategies/rebalance"
 	_ "bt/strategies/sell"
 	_ "bt/strategies/simple"
+	_ "bt/strategies/spline"
 	_ "bt/strategies/statistical"
 	_ "bt/strategies/trend"
 	_ "bt/strategies/volatility"
