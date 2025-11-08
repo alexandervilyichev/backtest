@@ -148,6 +148,7 @@ func parseFlags() backtester.Config {
 	saveSignals := flag.Int("save_signals", 0, "Сохранить топ-N стратегий с сигналами (0 = не сохранять)")
 	cpuProfile := flag.String("cpu_profile", "", "Файл для CPU профилирования (пусто = отключено)")
 	memProfile := flag.String("mem_profile", "", "Файл для памяти профилирования (пусто = отключено)")
+	configFile := flag.String("config", "", "Путь к JSON-файлу с конфигурациями стратегий (пусто = оптимизация)")
 	flag.Parse()
 
 	return backtester.Config{
@@ -157,13 +158,20 @@ func parseFlags() backtester.Config {
 		SaveSignals: *saveSignals,
 		CpuProfile:  *cpuProfile,
 		MemProfile:  *memProfile,
+		ConfigFile:  *configFile,
 	}
 }
 
 // createRunner — создает подходящий runner в зависимости от стратегии
 func createRunner(config backtester.Config, printer backtester.ResultPrinter) backtester.StrategyRunner {
 	if config.Strategy == "all" {
+		if config.ConfigFile != "" {
+			return backtester.NewParallelStrategyRunnerWithConfig(config.Debug, printer, config)
+		}
 		return backtester.NewParallelStrategyRunnerWithPrinter(config.Debug, printer)
+	}
+	if config.ConfigFile != "" {
+		return backtester.NewSingleStrategyRunnerWithConfig(config.Debug, config)
 	}
 	return backtester.NewSingleStrategyRunner(config.Debug)
 }
@@ -186,7 +194,18 @@ func runStrategies(config backtester.Config, runner backtester.StrategyRunner, c
 
 	bnhConfig := bnhStrategy.DefaultConfig()
 	bnhSignals := bnhStrategy.GenerateSignalsWithConfig(candles, bnhConfig)
-	bnhResult = internal.Backtest(candles, bnhSignals, 0.01)
+
+	// Получаем значение проскальзывания из runner
+	var slipping float64
+	if parallelRunner, ok := runner.(*backtester.ParallelStrategyRunner); ok {
+		slipping = parallelRunner.GetSlipping()
+	} else if singleRunner, ok := runner.(*backtester.SingleStrategyRunner); ok {
+		slipping = singleRunner.GetSlipping()
+	} else {
+		slipping = 0.01 // значение по умолчанию
+	}
+
+	bnhResult = internal.Backtest(candles, bnhSignals, slipping)
 
 	results := []backtester.BenchmarkResult{
 		*mainResult,

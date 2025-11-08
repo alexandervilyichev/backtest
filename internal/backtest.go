@@ -13,6 +13,7 @@ type BacktestResult struct {
 }
 
 func Backtest(candles []Candle, signals []SignalType, slippage float64) BacktestResult {
+
 	if len(candles) != len(signals) {
 		log.Fatal("Mismatch between candles and signals length")
 	}

@@ -50,4 +50,5 @@ type Config struct {
 	SaveSignals int
 	CpuProfile  string
 	MemProfile  string
+	ConfigFile  string
 }

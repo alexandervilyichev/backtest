@@ -1,7 +1,9 @@
 package backtester
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -10,33 +12,59 @@ import (
 	"bt/internal"
 )
 
-// ParallelStrategyRunner — реализация параллельного запуска стратегий
-type ParallelStrategyRunner struct {
-	debug   bool
-	printer ResultPrinter
+// RunnerBase — базовая структура с общей логикой для запуска стратегий
+type RunnerBase struct {
+	debug    bool
+	config   Config
+	configs  map[string]interface{} // Загруженные конфигурации из файла
+	slipping float64                // Глобальный параметр проскальзывания
 }
 
-// NewParallelStrategyRunner — конструктор для ParallelStrategyRunner
-func NewParallelStrategyRunner(debug bool) *ParallelStrategyRunner {
-	return &ParallelStrategyRunner{
-		debug:   debug,
-		printer: NewConsolePrinter(), // По умолчанию консольный принтер
+// loadConfigsFromFile — загружает конфигурации стратегий из JSON файла
+func (r *RunnerBase) loadConfigsFromFile() {
+	data, err := os.ReadFile(r.config.ConfigFile)
+	if err != nil {
+		fmt.Printf("❌ Ошибка чтения файла конфигурации %s: %v\n", r.config.ConfigFile, err)
+		return
 	}
-}
 
-// NewParallelStrategyRunnerWithPrinter — конструктор с кастомным принтером
-func NewParallelStrategyRunnerWithPrinter(debug bool, printer ResultPrinter) *ParallelStrategyRunner {
-	return &ParallelStrategyRunner{
-		debug:   debug,
-		printer: printer,
+	var allConfigs map[string]interface{}
+	err = json.Unmarshal(data, &allConfigs)
+	if err != nil {
+		fmt.Printf("❌ Ошибка парсинга JSON файла конфигурации: %v\n", err)
+		return
 	}
+
+	// Извлекаем глобальный параметр проскальзывания
+	if slippingVal, exists := allConfigs["slipping"]; exists {
+		if slippingFloat, ok := slippingVal.(float64); ok {
+			r.slipping = slippingFloat
+			fmt.Printf("✅ Глобальный параметр проскальзывания: %.4f\n", r.slipping)
+		} else {
+			r.slipping = 0.01 // значение по умолчанию
+			fmt.Printf("⚠️  Неверный тип параметра проскальзывания, используем значение по умолчанию: %.4f\n", r.slipping)
+		}
+	} else {
+		r.slipping = 0.01 // значение по умолчанию
+		fmt.Printf("⚠️  Параметр проскальзывания не найден, используем значение по умолчанию: %.4f\n", r.slipping)
+	}
+
+	// Удаляем глобальный параметр из конфигураций стратегий
+	r.configs = make(map[string]interface{})
+	for key, value := range allConfigs {
+		if key != "slipping" {
+			r.configs[key] = value
+		}
+	}
+
+	fmt.Printf("✅ Загружены конфигурации для %d стратегий из %s\n", len(r.configs), r.config.ConfigFile)
 }
 
-// RunStrategy — запускает одну стратегию
-func (r *ParallelStrategyRunner) RunStrategy(strategyName string, candles []internal.Candle) (*BenchmarkResult, error) {
+// runSingleStrategy — общая логика запуска одной стратегии
+func (r *RunnerBase) runSingleStrategy(strategyName string, candles []internal.Candle) (*BenchmarkResult, interface{}, error) {
 	strategy := internal.GetStrategy(strategyName)
 	if strategy == nil {
-		return nil, fmt.Errorf("стратегия %s не найдена", strategyName)
+		return nil, nil, fmt.Errorf("стратегия %s не найдена", strategyName)
 	}
 
 	strategyStartTime := time.Now()
@@ -45,10 +73,41 @@ func (r *ParallelStrategyRunner) RunStrategy(strategyName string, candles []inte
 		fmt.Printf("🐛 DEBUG: Запуск стратегии %s\n", strategyName)
 	}
 
-	// Оптимизация параметров и генерация сигналов
-	config := strategy.OptimizeWithConfig(candles)
+	var config internal.StrategyConfig
+
+	// Если есть загруженная конфигурация из файла, используем её
+	if r.configs != nil {
+		if loadedConfig, exists := r.configs[strategyName]; exists {
+			// Конвертируем загруженную конфигурацию в нужный тип
+			configBytes, _ := json.Marshal(loadedConfig)
+			defaultConfig := strategy.DefaultConfig()
+
+			// Пытаемся распарсить в конфигурацию стратегии
+			err := json.Unmarshal(configBytes, defaultConfig)
+			if err == nil {
+				config = defaultConfig
+				if r.debug {
+					fmt.Printf("🐛 DEBUG: Используем загруженную конфигурацию для %s\n", strategyName)
+				}
+			} else {
+				if r.debug {
+					fmt.Printf("🐛 DEBUG: Ошибка парсинга конфигурации для %s: %v, используем оптимизацию\n", strategyName, err)
+				}
+				config = strategy.OptimizeWithConfig(candles)
+			}
+		} else {
+			if r.debug {
+				fmt.Printf("🐛 DEBUG: Конфигурация для %s не найдена в файле, используем оптимизацию\n", strategyName)
+			}
+			config = strategy.OptimizeWithConfig(candles)
+		}
+	} else {
+		// Оптимизация параметров
+		config = strategy.OptimizeWithConfig(candles)
+	}
+
 	signals := strategy.GenerateSignalsWithConfig(candles, config)
-	result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
+	result := internal.Backtest(candles, signals, r.slipping) // Используем глобальный параметр проскальзывания
 
 	executionTime := time.Since(strategyStartTime)
 
@@ -58,13 +117,91 @@ func (r *ParallelStrategyRunner) RunStrategy(strategyName string, candles []inte
 		TradeCount:     result.TradeCount,
 		FinalPortfolio: result.FinalPortfolio,
 		ExecutionTime:  executionTime,
-	}, nil
+	}, config, nil
+}
+
+// GetSlipping — возвращает значение параметра проскальзывания
+func (r *RunnerBase) GetSlipping() float64 {
+	return r.slipping
+}
+
+// ParallelStrategyRunner — реализация параллельного запуска стратегий
+type ParallelStrategyRunner struct {
+	RunnerBase
+	printer ResultPrinter
+}
+
+// NewParallelStrategyRunner — конструктор для ParallelStrategyRunner
+func NewParallelStrategyRunner(debug bool) *ParallelStrategyRunner {
+	return &ParallelStrategyRunner{
+		RunnerBase: RunnerBase{debug: debug},
+		printer:    NewConsolePrinter(), // По умолчанию консольный принтер
+	}
+}
+
+// NewParallelStrategyRunnerWithPrinter — конструктор с кастомным принтером
+func NewParallelStrategyRunnerWithPrinter(debug bool, printer ResultPrinter) *ParallelStrategyRunner {
+	return &ParallelStrategyRunner{
+		RunnerBase: RunnerBase{debug: debug},
+		printer:    printer,
+	}
+}
+
+// NewParallelStrategyRunnerWithConfig — конструктор с конфигурацией
+func NewParallelStrategyRunnerWithConfig(debug bool, printer ResultPrinter, config Config) *ParallelStrategyRunner {
+	runner := &ParallelStrategyRunner{
+		RunnerBase: RunnerBase{
+			debug:  debug,
+			config: config,
+		},
+		printer: printer,
+	}
+
+	// Загружаем конфигурации из файла если указан
+	if config.ConfigFile != "" {
+		runner.loadConfigsFromFile()
+	}
+
+	return runner
+}
+
+// saveOptimizedConfigs — сохраняет оптимизированные конфигурации в JSON файл
+func (r *ParallelStrategyRunner) saveOptimizedConfigs(configs map[string]interface{}) {
+	filename := "optimized_configs.json"
+	data, err := json.MarshalIndent(configs, "", "  ")
+	if err != nil {
+		fmt.Printf("❌ Ошибка сериализации конфигураций: %v\n", err)
+		return
+	}
+
+	err = os.WriteFile(filename, data, 0644)
+	if err != nil {
+		fmt.Printf("❌ Ошибка сохранения файла конфигураций %s: %v\n", filename, err)
+		return
+	}
+
+	fmt.Printf("💾 Оптимизированные конфигурации сохранены в %s\n", filename)
+}
+
+// RunStrategyWithConfig — запускает одну стратегию и возвращает результат с конфигурацией
+func (r *ParallelStrategyRunner) RunStrategyWithConfig(strategyName string, candles []internal.Candle) (*BenchmarkResult, interface{}, error) {
+	return r.runSingleStrategy(strategyName, candles)
+}
+
+// RunStrategy — запускает одну стратегию
+func (r *ParallelStrategyRunner) RunStrategy(strategyName string, candles []internal.Candle) (*BenchmarkResult, error) {
+	result, _, err := r.runSingleStrategy(strategyName, candles)
+	return result, err
 }
 
 // RunAllStrategies — запускает все доступные стратегии параллельно
 func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]BenchmarkResult, error) {
 	fmt.Println("\n" + strings.Repeat("═", 80))
-	fmt.Println("🚀 ЗАПУСК МАССОВОГО ТЕСТИРОВАНИЯ СТРАТЕГИЙ")
+	if r.config.ConfigFile != "" {
+		fmt.Println("🚀 ЗАПУСК СТРАТЕГИЙ С КОНФИГУРАЦИЯМИ ИЗ ФАЙЛА")
+	} else {
+		fmt.Println("🚀 ЗАПУСК МАССОВОГО ТЕСТИРОВАНИЯ СТРАТЕГИЙ")
+	}
 	fmt.Println(strings.Repeat("═", 80))
 	fmt.Printf("🔥 Параллельное выполнение на %d ядрах\n", runtime.NumCPU())
 	fmt.Printf("📊 Данных для анализа: %d свечей\n", len(candles))
@@ -83,6 +220,7 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 
 	// Канал для результатов
 	resultsChan := make(chan BenchmarkResult, totalStrategies)
+	configsChan := make(chan map[string]interface{}, totalStrategies)
 	var wg sync.WaitGroup
 
 	// Запускаем стратегии параллельно
@@ -92,11 +230,12 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 		go func(strategyName string) {
 			defer wg.Done()
 
-			if result, err := r.RunStrategy(strategyName, candles); err != nil {
+			if result, config, err := r.RunStrategyWithConfig(strategyName, candles); err != nil {
 				fmt.Printf("❌ Ошибка при запуске стратегии %s: %v\n", strategyName, err)
 				return
 			} else {
 				resultsChan <- *result
+				configsChan <- map[string]interface{}{strategyName: config}
 				fmt.Printf("✅ %-25s │ Прибыль: %+7.2f%% │ Сделки: %4d │ Время: %8v\n",
 					result.Name, result.TotalProfit*100, result.TradeCount, result.ExecutionTime)
 			}
@@ -106,6 +245,7 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 	// Ждем завершения всех горутин
 	wg.Wait()
 	close(resultsChan)
+	close(configsChan)
 
 	// Собираем результаты
 	var results []BenchmarkResult
@@ -115,10 +255,23 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 		completed++
 	}
 
+	// Собираем конфигурации для сохранения
+	optimizedConfigs := make(map[string]interface{})
+	for configMap := range configsChan {
+		for name, config := range configMap {
+			optimizedConfigs[name] = config
+		}
+	}
+
 	elapsed := time.Since(startTime)
 	fmt.Println(strings.Repeat("─", 80))
 	fmt.Printf("⚡ Все %d стратегий выполнены за %v\n", totalStrategies, elapsed)
 	fmt.Printf("⏱️  Среднее время на стратегию: %v\n", elapsed/time.Duration(totalStrategies))
+
+	// Сохраняем оптимизированные конфигурации если не используется файл конфигурации
+	if r.config.ConfigFile == "" && len(optimizedConfigs) > 0 {
+		r.saveOptimizedConfigs(optimizedConfigs)
+	}
 
 	// Выводим результаты через принтер
 	if r.printer != nil {
@@ -128,63 +281,89 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 	return results, nil
 }
 
+// GetSlipping — возвращает значение параметра проскальзывания
+func (r *ParallelStrategyRunner) GetSlipping() float64 {
+	return r.slipping
+}
+
 // SingleStrategyRunner — реализация запуска одной стратегии с бенчмарком
 type SingleStrategyRunner struct {
-	debug bool
+	RunnerBase
 }
 
 // NewSingleStrategyRunner — конструктор для SingleStrategyRunner
 func NewSingleStrategyRunner(debug bool) *SingleStrategyRunner {
-	return &SingleStrategyRunner{debug: debug}
+	return &SingleStrategyRunner{
+		RunnerBase: RunnerBase{debug: debug},
+	}
+}
+
+// NewSingleStrategyRunnerWithConfig — конструктор с конфигурацией
+func NewSingleStrategyRunnerWithConfig(debug bool, config Config) *SingleStrategyRunner {
+	runner := &SingleStrategyRunner{
+		RunnerBase: RunnerBase{
+			debug:  debug,
+			config: config,
+		},
+	}
+
+	// Загружаем конфигурации из файла если указан
+	if config.ConfigFile != "" {
+		runner.loadConfigsFromFile()
+	}
+
+	return runner
 }
 
 // RunStrategy — запускает одну стратегию с Buy & Hold бенчмарком
 func (r *SingleStrategyRunner) RunStrategy(strategyName string, candles []internal.Candle) (*BenchmarkResult, error) {
-	strategy := internal.GetStrategy(strategyName)
-	if strategy == nil {
-		return nil, fmt.Errorf("стратегия %s не найдена", strategyName)
-	}
-
 	fmt.Println("\n" + strings.Repeat("═", 80))
-	fmt.Println("🎯 ТЕСТИРОВАНИЕ ОДИНОЧНОЙ СТРАТЕГИИ")
+	if r.config.ConfigFile != "" {
+		fmt.Println("🎯 ТЕСТИРОВАНИЕ СТРАТЕГИИ С КОНФИГУРАЦИЕЙ ИЗ ФАЙЛА")
+	} else {
+		fmt.Println("🎯 ТЕСТИРОВАНИЕ ОДИНОЧНОЙ СТРАТЕГИИ")
+	}
 	fmt.Println(strings.Repeat("═", 80))
-	fmt.Printf("📈 Стратегия: %s\n", strategy.Name())
+	fmt.Printf("📈 Стратегия: %s\n", strategyName)
 	fmt.Printf("📊 Данных для анализа: %d свечей\n", len(candles))
 	fmt.Println(strings.Repeat("─", 80))
 
 	startTime := time.Now()
 
-	// Запуск основной стратегии
-	fmt.Println("🔄 Оптимизация параметров...")
-	config := strategy.OptimizeWithConfig(candles)
-	
-	fmt.Println("📡 Генерация торговых сигналов...")
-	signals := strategy.GenerateSignalsWithConfig(candles, config)
-	
-	fmt.Println("💹 Выполнение бэктестинга...")
-	result := internal.Backtest(candles, signals, 0.01)
-
-	executionTime := time.Since(startTime)
-
-	mainResult := &BenchmarkResult{
-		Name:           strategy.Name(),
-		TotalProfit:    result.TotalProfit,
-		TradeCount:     result.TradeCount,
-		FinalPortfolio: result.FinalPortfolio,
-		ExecutionTime:  executionTime,
+	// Проверяем, используем ли конфигурацию из файла
+	useConfigFromFile := false
+	if r.configs != nil {
+		if _, exists := r.configs[strategyName]; exists {
+			useConfigFromFile = true
+		}
 	}
+
+	if useConfigFromFile {
+		fmt.Println("📋 Используем конфигурацию из файла...")
+	} else {
+		fmt.Println("🔄 Оптимизация параметров...")
+	}
+
+	result, _, err := r.runSingleStrategy(strategyName, candles)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("📡 Генерация торговых сигналов...")
+	fmt.Println("💹 Выполнение бэктестинга...")
 
 	// Запуск Buy & Hold как бенчмарка
 	bnhStrategy := internal.GetStrategy("buy_and_hold")
-
 	bnhConfig := bnhStrategy.DefaultConfig()
 	bnhSignals := bnhStrategy.GenerateSignalsWithConfig(candles, bnhConfig)
-	internal.Backtest(candles, bnhSignals, 0.01)
+	internal.Backtest(candles, bnhSignals, r.slipping)
+
+	executionTime := time.Since(startTime)
 
 	fmt.Println(strings.Repeat("─", 80))
 	fmt.Printf("⚡ Тестирование завершено за %v\n", executionTime)
 
-	return mainResult, nil
+	return result, nil
 }
 
 // RunAllStrategies — для интерфейса совместимости (не используется для одиночной стратегии)
