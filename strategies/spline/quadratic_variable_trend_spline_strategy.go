@@ -101,11 +101,11 @@ func (s *QuadraticVariableTrendSplineStrategy) GenerateSignalsWithConfig(candles
 	}
 
 	// Print spline parameters
-	fmt.Println("Quadratic Spline Parameters:")
-	for i, segment := range segments {
-		fmt.Printf("Segment %d: StartIdx=%d, EndIdx=%d, A=%.8f, B=%.6f, C=%.6f, IsAscending=%t, InflectionX=%.2f\n",
-			i, segment.StartIdx, segment.EndIdx, segment.A, segment.B, segment.C, segment.IsAscending, segment.InflectionX)
-	}
+	// fmt.Println("Quadratic Spline Parameters:")
+	// for i, segment := range segments {
+	// 	fmt.Printf("Segment %d: StartIdx=%d, EndIdx=%d, A=%.8f, B=%.6f, C=%.6f, IsAscending=%t, InflectionX=%.2f\n",
+	// 		i, segment.StartIdx, segment.EndIdx, segment.A, segment.B, segment.C, segment.IsAscending, segment.InflectionX)
+	// }
 
 	return signals
 }
@@ -304,9 +304,9 @@ func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []inte
 	// tmos 8 97
 	// tbru 71 414
 
-	for minLen := 60; minLen < 80; minLen += 1 {
+	for minLen := 10; minLen < 80; minLen += 10 {
 
-		for maxLen := 400; maxLen < 420; maxLen += 1 {
+		for maxLen := 50; maxLen < 420; maxLen += 10 {
 			if maxLen < minLen {
 				continue
 			}
@@ -321,7 +321,7 @@ func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []inte
 			}
 
 			signals := s.GenerateSignalsWithConfig(candles, config)
-			result := internal.Backtest(candles, signals, 0.5)
+			result := internal.Backtest(candles, signals, 0.01)
 
 			// Select configuration with highest profit
 			if result.TotalProfit >= bestProfit {

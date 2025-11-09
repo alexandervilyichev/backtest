@@ -168,7 +168,7 @@ func (s *MACDStrategy) GenerateSignalsWithConfig(candles []internal.Candle, conf
 
 		// Проверяем условия выхода если в позиции
 		if inPosition {
-			exitSignal := s.checkExitConditions(currentPrice, entryPrice, stopLoss, takeProfit)
+			exitSignal := s.checkExitConditions(currentPrice, stopLoss, takeProfit)
 			if exitSignal {
 				signals[i] = internal.SELL
 				inPosition = false
@@ -268,7 +268,7 @@ func (s *MACDStrategy) checkEntryConditions(idx int, macdLine, signalLine, histo
 }
 
 // checkExitConditions проверяет условия для выхода из позиции
-func (s *MACDStrategy) checkExitConditions(currentPrice, entryPrice, stopLoss, takeProfit float64) bool {
+func (s *MACDStrategy) checkExitConditions(currentPrice, stopLoss, takeProfit float64) bool {
 	// Проверка стоп-лосс
 	if currentPrice <= stopLoss {
 		return true

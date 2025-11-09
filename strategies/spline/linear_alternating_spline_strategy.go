@@ -105,11 +105,11 @@ func (s *LinearAlternatingSplineStrategy) GenerateSignalsWithConfig(candles []in
 	// }
 
 	// Print spline parameters
-	fmt.Println("Spline Parameters:")
-	for i, segment := range segments {
-		fmt.Printf("Segment %d: StartIdx=%d, EndIdx=%d, Slope=%.6f, Intercept=%.6f, IsAscending=%t\n",
-			i, segment.StartIdx, segment.EndIdx, segment.Slope, segment.Intercept, segment.IsAscending)
-	}
+	// fmt.Println("Spline Parameters:")
+	// for i, segment := range segments {
+	// 	fmt.Printf("Segment %d: StartIdx=%d, EndIdx=%d, Slope=%.6f, Intercept=%.6f, IsAscending=%t\n",
+	// 		i, segment.StartIdx, segment.EndIdx, segment.Slope, segment.Intercept, segment.IsAscending)
+	// }
 
 	return signals
 }

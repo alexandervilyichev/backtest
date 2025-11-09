@@ -16,10 +16,18 @@ var Cache sync.Map
 
 func keyFor(typeAlgo string, typeInput string, period int) string {
 	var buf bytes.Buffer
-	if err := binary.Write(&buf, binary.LittleEndian, typeAlgo); err != nil {
+	algoLen := int32(len(typeAlgo))
+	if err := binary.Write(&buf, binary.LittleEndian, algoLen); err != nil {
 		panic(err)
 	}
-	if err := binary.Write(&buf, binary.LittleEndian, typeInput); err != nil {
+	if _, err := buf.WriteString(typeAlgo); err != nil {
+		panic(err)
+	}
+	inputLen := int32(len(typeInput))
+	if err := binary.Write(&buf, binary.LittleEndian, inputLen); err != nil {
+		panic(err)
+	}
+	if _, err := buf.WriteString(typeInput); err != nil {
 		panic(err)
 	}
 	if err := binary.Write(&buf, binary.LittleEndian, int64(period)); err != nil {

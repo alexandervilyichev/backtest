@@ -65,9 +65,9 @@
   },
   "ma_ema_correlation": {
     "ma_period": 10,
-    "ema_period": 20,
+    "ema_period": 15,
     "lookback": 15,
-    "threshold": 0.8999999999999999
+    "threshold": 0.7999999999999999
   },
   "momentum_breakout": {
     "momentum_period": 15,
@@ -86,16 +86,16 @@
     "sensitivity": 3
   },
   "qstick_oscillator": {
-    "period": 12,
+    "period": 17,
     "buy_threshold": -2,
     "sell_threshold": 0.2,
     "stop_loss_percent": 2,
     "take_profit_percent": 7,
-    "volatility_filter": 0.003
+    "volatility_filter": 0.0035
   },
   "quadratic_variable_trend_spline": {
-    "min_segment_length": 76,
-    "max_segment_length": 419
+    "min_segment_length": 10,
+    "max_segment_length": 150
   },
   "rsi_oscillator": {
     "period": 11,
