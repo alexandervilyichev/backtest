@@ -11,6 +11,7 @@ package statistical
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -549,6 +550,14 @@ func (s *ARIMAStrategy) GenerateSignalsWithConfig(candles []internal.Candle, con
 
 	log.Printf("✅ Улучшенный ARIMA анализ завершен")
 	return signals
+}
+
+func (s *ARIMAStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *ARIMAStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

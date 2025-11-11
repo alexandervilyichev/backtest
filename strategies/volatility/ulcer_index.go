@@ -44,6 +44,7 @@ package volatility
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -170,6 +171,14 @@ func (s *UlcerIndexStrategy) GenerateSignalsWithConfig(candles []internal.Candle
 	}
 
 	return signals
+}
+
+func (s *UlcerIndexStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *UlcerIndexStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

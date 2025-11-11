@@ -40,6 +40,7 @@ package volume
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -121,6 +122,14 @@ func (s *VolumeBreakoutStrategy) GenerateSignalsWithConfig(candles []internal.Ca
 	}
 
 	return signals
+}
+
+func (s *VolumeBreakoutStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *VolumeBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

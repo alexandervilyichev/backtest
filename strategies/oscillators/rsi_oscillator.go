@@ -39,6 +39,7 @@ package oscillators
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -115,6 +116,14 @@ func (s *RsiOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Can
 	}
 
 	return signals
+}
+
+func (s *RsiOscillatorStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *RsiOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

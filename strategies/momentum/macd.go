@@ -342,6 +342,33 @@ func (s *MACDStrategy) OptimizeWithConfig(candles []internal.Candle) internal.St
 	return bestConfig
 }
 
+func (s *MACDStrategy) LoadConfigFromMap(configMap map[string]interface{}) internal.StrategyConfig {
+	config := &MACDConfig{
+		FastPeriod:              12,
+		SlowPeriod:              26,
+		SignalPeriod:            9,
+		TrendPeriod:             50,
+		VolatilityPeriod:        20,
+		MinSignalStrength:       0.05,
+		StopLossPercent:         0.05,
+		TakeProfitPercent:       0.15,
+		UseTrendFilter:          true,
+		UseVolatilityFilter:     false,
+		UseSignalStrengthFilter: false,
+	}
+	if val, ok := configMap["fast_period"].(float64); ok {
+		config.FastPeriod = int(val)
+	}
+	if val, ok := configMap["slow_period"].(float64); ok {
+
+		config.SlowPeriod = int(val)
+	}
+	if val, ok := configMap["signal_period"].(float64); ok {
+		config.SignalPeriod = int(val)
+	}
+	return config
+}
+
 func init() {
 	// internal.RegisterStrategy("macd", &MACDStrategy{})
 }

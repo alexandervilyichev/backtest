@@ -16,6 +16,7 @@ package volatility
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -374,6 +375,14 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 	return signals
 }
 
+func (s *GARCHVolatilityStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
+}
+
 func (s *GARCHVolatilityStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
 	bestConfig := &GARCHVolatilityConfig{
 		WindowSize:          100,
@@ -454,5 +463,5 @@ func calculateVariance(data []float64, mean float64) float64 {
 }
 
 func init() {
-	// internal.RegisterStrategy("garch_volatility_strategy", &GARCHVolatilityStrategy{})
+	internal.RegisterStrategy("garch_volatility_strategy", &GARCHVolatilityStrategy{})
 }

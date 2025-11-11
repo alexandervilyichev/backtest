@@ -2,6 +2,7 @@
 package internal
 
 import (
+	"encoding/json"
 	"log"
 )
 
@@ -17,6 +18,7 @@ type Strategy interface {
 	DefaultConfig() StrategyConfig
 	GenerateSignalsWithConfig(candles []Candle, config StrategyConfig) []SignalType
 	OptimizeWithConfig(candles []Candle) StrategyConfig
+	LoadConfigFromMap(configMap json.RawMessage) StrategyConfig
 }
 
 var strategies = make(map[string]Strategy)

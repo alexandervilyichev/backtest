@@ -42,6 +42,7 @@ package trend
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -234,6 +235,14 @@ func (s *SuperTrendStrategy) GenerateSignalsWithConfig(candles []internal.Candle
 	}
 
 	return signals
+}
+
+func (s *SuperTrendStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *SuperTrendStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

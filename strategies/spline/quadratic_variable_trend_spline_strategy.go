@@ -2,6 +2,7 @@ package spline
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"fmt"
 	"math"
 )
@@ -292,6 +293,14 @@ func (s *QuadraticVariableTrendSplineStrategy) calculateQuadraticR2(y []float64,
 	}
 
 	return 1 - ssRes/ssTot
+}
+
+func (s *QuadraticVariableTrendSplineStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

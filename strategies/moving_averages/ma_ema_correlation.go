@@ -39,6 +39,7 @@ package moving_averages
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -143,6 +144,14 @@ func (s *MaEmaCorrelationStrategy) GenerateSignalsWithConfig(candles []internal.
 	}
 
 	return signals
+}
+
+func (s *MaEmaCorrelationStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *MaEmaCorrelationStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

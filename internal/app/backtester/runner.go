@@ -16,8 +16,8 @@ import (
 type RunnerBase struct {
 	debug    bool
 	config   Config
-	configs  map[string]interface{} // Загруженные конфигурации из файла
-	slipping float64                // Глобальный параметр проскальзывания
+	configs  map[string]json.RawMessage // Загруженные конфигурации из файла
+	slipping float64                    // Глобальный параметр проскальзывания
 }
 
 // loadConfigsFromFile — загружает конфигурации стратегий из JSON файла
@@ -28,7 +28,7 @@ func (r *RunnerBase) loadConfigsFromFile() {
 		return
 	}
 
-	var allConfigs map[string]interface{}
+	var allConfigs map[string]json.RawMessage
 	err = json.Unmarshal(data, &allConfigs)
 	if err != nil {
 		fmt.Printf("❌ Ошибка парсинга JSON файла конфигурации: %v\n", err)
@@ -37,12 +37,12 @@ func (r *RunnerBase) loadConfigsFromFile() {
 
 	// Извлекаем глобальный параметр проскальзывания
 	if slippingVal, exists := allConfigs["slipping"]; exists {
-		if slippingFloat, ok := slippingVal.(float64); ok {
-			r.slipping = slippingFloat
-			fmt.Printf("✅ Глобальный параметр проскальзывания: %.4f\n", r.slipping)
-		} else {
+		if err := json.Unmarshal(slippingVal, &r.slipping); err != nil {
 			r.slipping = 0.01 // значение по умолчанию
 			fmt.Printf("⚠️  Неверный тип параметра проскальзывания, используем значение по умолчанию: %.4f\n", r.slipping)
+
+		} else {
+			fmt.Printf("✅ Глобальный параметр проскальзывания: %.4f\n", r.slipping)
 		}
 	} else {
 		r.slipping = 0.01 // значение по умолчанию
@@ -50,7 +50,7 @@ func (r *RunnerBase) loadConfigsFromFile() {
 	}
 
 	// Удаляем глобальный параметр из конфигураций стратегий
-	r.configs = make(map[string]interface{})
+	r.configs = make(map[string]json.RawMessage)
 	for key, value := range allConfigs {
 		if key != "slipping" {
 			r.configs[key] = value
@@ -78,31 +78,21 @@ func (r *RunnerBase) runSingleStrategy(strategyName string, candles []internal.C
 	// Если есть загруженная конфигурация из файла, используем её
 	if r.configs != nil {
 		if loadedConfig, exists := r.configs[strategyName]; exists {
-			// Конвертируем загруженную конфигурацию в нужный тип
-			configBytes, _ := json.Marshal(loadedConfig)
-			defaultConfig := strategy.DefaultConfig()
 
-			// Пытаемся распарсить в конфигурацию стратегии
-			err := json.Unmarshal(configBytes, defaultConfig)
-			if err == nil {
-				config = defaultConfig
-				if r.debug {
-					fmt.Printf("🐛 DEBUG: Используем загруженную конфигурацию для %s\n", strategyName)
-				}
-			} else {
-				if r.debug {
-					fmt.Printf("🐛 DEBUG: Ошибка парсинга конфигурации для %s: %v, используем оптимизацию\n", strategyName, err)
-				}
-				config = strategy.OptimizeWithConfig(candles)
+			config = strategy.LoadConfigFromMap(loadedConfig)
+			if r.debug {
+				fmt.Printf("🐛 DEBUG: Используем загруженную конфигурацию для %s\n", strategyName)
 			}
 		} else {
 			if r.debug {
-				fmt.Printf("🐛 DEBUG: Конфигурация для %s не найдена в файле, используем оптимизацию\n", strategyName)
+				fmt.Printf("🐛 DEBUG: Конфигурация для %s имеет неверный тип, используем оптимизацию\n", strategyName)
 			}
 			config = strategy.OptimizeWithConfig(candles)
 		}
 	} else {
-		// Оптимизация параметров
+		if r.debug {
+			fmt.Printf("🐛 DEBUG: Конфигурация для %s не найдена в файле, используем оптимизацию\n", strategyName)
+		}
 		config = strategy.OptimizeWithConfig(candles)
 	}
 

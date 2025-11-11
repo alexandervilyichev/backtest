@@ -40,6 +40,7 @@ package volatility
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -217,6 +218,14 @@ func (s *BollingerBandsStrategy) GenerateSignalsWithConfig(candles []internal.Ca
 	}
 
 	return signals
+}
+
+func (s *BollingerBandsStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *BollingerBandsStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

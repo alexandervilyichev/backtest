@@ -1,7 +1,10 @@
 // strategies/buy_and_hold.go
 package simple
 
-import "bt/internal"
+import (
+	"bt/internal"
+	"encoding/json"
+)
 
 type BuyAndHoldConfig struct{}
 
@@ -47,6 +50,14 @@ func (s *BuyAndHoldStrategy) GenerateSignalsWithConfig(candles []internal.Candle
 	}
 
 	return signals
+}
+
+func (s *BuyAndHoldStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *BuyAndHoldStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

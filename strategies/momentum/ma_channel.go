@@ -42,6 +42,7 @@ package momentum
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -135,6 +136,14 @@ func (s *MAChannelStrategy) GenerateSignalsWithConfig(candles []internal.Candle,
 	}
 
 	return signals
+}
+
+func (s *MAChannelStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *MAChannelStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

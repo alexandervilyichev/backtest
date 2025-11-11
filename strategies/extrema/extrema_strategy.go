@@ -44,6 +44,7 @@ package extrema
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -597,15 +598,16 @@ func (s *ExtremaStrategy) GenerateSignalsWithConfig(candles []internal.Candle, c
 	return signals
 }
 
-func (s *ExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &ExtremaConfig{
-		MinDistance:     40,
-		WindowSize:      20,
-		MinStrength:     1.5,
-		LookbackPeriod:  60,
-		SmoothingType:   "ma",
-		SmoothingPeriod: 10,
+func (s *ExtremaStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
 	}
+	return config
+}
+
+func (s *ExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := s.DefaultConfig().(*ExtremaConfig)
 	bestProfit := -1.0
 
 	// Extract prices once

@@ -39,6 +39,7 @@ package strategies
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -110,6 +111,14 @@ func (s *PullbackSellStrategy) GenerateSignalsWithConfig(candles []internal.Cand
 	}
 
 	return signals
+}
+
+func (s *PullbackSellStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *PullbackSellStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

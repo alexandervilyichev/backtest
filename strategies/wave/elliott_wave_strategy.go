@@ -40,6 +40,7 @@ package strategies
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -423,6 +424,14 @@ func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 
 	log.Printf("✅ Волновой анализ Эллиотта завершен")
 	return signals
+}
+
+func (s *ElliottWaveStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *ElliottWaveStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

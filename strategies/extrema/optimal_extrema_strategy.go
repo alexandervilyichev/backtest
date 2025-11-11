@@ -23,6 +23,7 @@ package extrema
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"log"
 )
 
@@ -282,6 +283,14 @@ func (s *OptimalExtremaStrategy) GenerateSignalsWithConfig(candles []internal.Ca
 	log.Printf("📈 Сгенерировано сигналов: BUY=%d, SELL=%d", buyCount, sellCount)
 
 	return signals
+}
+
+func (s *OptimalExtremaStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *OptimalExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

@@ -52,6 +52,7 @@ package oscillators
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -276,6 +277,14 @@ func (s *QstickOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.
 	}
 
 	return signals
+}
+
+func (s *QstickOscillatorStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *QstickOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

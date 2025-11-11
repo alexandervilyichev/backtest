@@ -40,6 +40,7 @@ package oscillators
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -128,6 +129,14 @@ func (s *StochasticOscillatorStrategy) GenerateSignalsWithConfig(candles []inter
 	}
 
 	return signals
+}
+
+func (s *StochasticOscillatorStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *StochasticOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

@@ -19,6 +19,7 @@ package statistical
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -294,6 +295,14 @@ func (s *HestonStrategy) GenerateSignalsWithConfig(candles []internal.Candle, co
 	return signals
 }
 
+func (s *HestonStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
+}
+
 func (s *HestonStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
 	bestConfig := &HestonConfig{
 		WindowSize:      100,
@@ -365,5 +374,5 @@ func variance(data []float64, mean float64) float64 {
 }
 
 func init() {
-	// internal.RegisterStrategy("heston_strategy", &HestonStrategy{})
+	internal.RegisterStrategy("heston_strategy", &HestonStrategy{})
 }

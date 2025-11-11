@@ -2,6 +2,7 @@ package spline
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"fmt"
 	"math"
 )
@@ -225,6 +226,14 @@ func (s *LinearAlternatingSplineStrategy) calculateR2(y []float64, slope, interc
 	}
 
 	return 1 - ssRes/ssTot
+}
+
+func (s *LinearAlternatingSplineStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *LinearAlternatingSplineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

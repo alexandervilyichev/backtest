@@ -2,6 +2,7 @@ package trend
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -335,6 +336,14 @@ func (s *FOMOStrategy) generateFOMOSignal(candles []internal.Candle, i int, fomo
 	}
 
 	return internal.HOLD
+}
+
+func (s *FOMOStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *FOMOStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

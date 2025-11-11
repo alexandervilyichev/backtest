@@ -40,6 +40,7 @@ package volatility
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -256,6 +257,14 @@ func (s *MomentumBreakoutStrategy) GenerateSignalsWithConfig(candles []internal.
 	}
 
 	return signals
+}
+
+func (s *MomentumBreakoutStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *MomentumBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

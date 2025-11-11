@@ -2,6 +2,7 @@ package lines
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -155,6 +156,14 @@ func (s *WaveletDenoiseStrategy) GenerateSignalsWithConfig(candles []internal.Ca
 	}
 
 	return signals
+}
+
+func (s *WaveletDenoiseStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *WaveletDenoiseStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

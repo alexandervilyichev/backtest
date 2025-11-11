@@ -38,6 +38,7 @@ package volume
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -210,6 +211,14 @@ func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, confi
 	}
 
 	return signals
+}
+
+func (s *OBVStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *OBVStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

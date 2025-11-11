@@ -45,6 +45,7 @@ package lines
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -142,6 +143,14 @@ func (s *SupportLineStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 	}
 
 	return signals
+}
+
+func (s *SupportLineStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *SupportLineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

@@ -2,6 +2,7 @@ package rebalance
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"log"
 	"time"
 )
@@ -157,6 +158,14 @@ func (s *MonthlyRebalanceStrategy) GenerateSignalsWithConfig(candles []internal.
 	}
 
 	return signals
+}
+
+func (s *MonthlyRebalanceStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *MonthlyRebalanceStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

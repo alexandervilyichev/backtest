@@ -43,6 +43,7 @@ package trend
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -146,6 +147,14 @@ func (s *GoldenCrossStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 	}
 
 	return signals
+}
+
+func (s *GoldenCrossStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
+	config := s.DefaultConfig()
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 func (s *GoldenCrossStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
