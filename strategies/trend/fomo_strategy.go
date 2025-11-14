@@ -2,7 +2,6 @@ package trend
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -32,23 +31,6 @@ type FOMOConfig struct {
 	CooldownPeriod  int     `json:"cooldown_period"`   // Bars to wait after FOMO signal
 }
 
-// DefaultConfig returns default configuration
-func (c *FOMOStrategy) DefaultConfig() internal.StrategyConfig {
-	return &FOMOConfig{
-		VolumeLookback:     20,
-		MomentumLookback:   10,
-		VolatilityLookback: 15,
-		VolumeSpike:        1.8,   // Volume must be 1.8x average (баланс)
-		MomentumThreshold:  0.015, // 1.5% momentum threshold (баланс)
-		VolatilityBoost:    1.3,   // 30% volatility boost
-		ConsecutiveBars:    3,     // 3 consecutive moves (возврат к более строгому)
-		FearDecay:          0.85,  // 15% decay per bar
-		GreedMultiplier:    1.4,   // 40% greed amplification
-		MaxFOMOStrength:    4.0,   // Max 4x signal strength
-		CooldownPeriod:     3,     // 3 bar cooldown (средний период)
-	}
-}
-
 // Validate validates configuration parameters
 func (c *FOMOConfig) Validate() error {
 	if c.VolumeLookback <= 0 || c.MomentumLookback <= 0 || c.VolatilityLookback <= 0 {
@@ -76,6 +58,7 @@ func (c *FOMOConfig) DefaultConfigString() string {
 }
 
 type FOMOStrategy struct {
+	internal.BaseConfig
 }
 
 func (s *FOMOStrategy) Name() string {
@@ -338,14 +321,6 @@ func (s *FOMOStrategy) generateFOMOSignal(candles []internal.Candle, i int, fomo
 	return internal.HOLD
 }
 
-func (s *FOMOStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *FOMOStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
 	bestConfig := s.DefaultConfig().(*FOMOConfig)
 
@@ -427,12 +402,21 @@ func (s *FOMOStrategy) evaluateFOMOPerformance(candles []internal.Candle, signal
 }
 
 func init() {
-	internal.RegisterStrategy("fomo", &FOMOStrategy{})
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+	internal.RegisterStrategy("fomo", &FOMOStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &FOMOConfig{
+				VolumeLookback:     20,
+				MomentumLookback:   10,
+				VolatilityLookback: 15,
+				VolumeSpike:        1.8,   // Volume must be 1.8x average (баланс)
+				MomentumThreshold:  0.015, // 1.5% momentum threshold (баланс)
+				VolatilityBoost:    1.3,   // 30% volatility boost
+				ConsecutiveBars:    3,     // 3 consecutive moves (возврат к более строгому)
+				FearDecay:          0.85,  // 15% decay per bar
+				GreedMultiplier:    1.4,   // 40% greed amplification
+				MaxFOMOStrength:    4.0,   // Max 4x signal strength
+				CooldownPeriod:     3,     // 3 bar cooldown (средний период)
+			},
+		},
+	})
 }

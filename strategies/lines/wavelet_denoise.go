@@ -2,7 +2,6 @@ package lines
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -34,7 +33,9 @@ func (c *WaveletDenoiseConfig) DefaultConfigString() string {
 		c.LookbackPeriod, c.BuyThreshold, c.SellThreshold)
 }
 
-type WaveletDenoiseStrategy struct{}
+type WaveletDenoiseStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *WaveletDenoiseStrategy) Name() string {
 	return "wavelet_denoise"
@@ -61,14 +62,6 @@ func calculateRollingMinForValues(values []float64, period int) []float64 {
 	}
 
 	return minValues
-}
-
-func (s *WaveletDenoiseStrategy) DefaultConfig() internal.StrategyConfig {
-	return &WaveletDenoiseConfig{
-		LookbackPeriod: 20,
-		BuyThreshold:   0.005,
-		SellThreshold:  0.01,
-	}
 }
 
 func (s *WaveletDenoiseStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -158,20 +151,8 @@ func (s *WaveletDenoiseStrategy) GenerateSignalsWithConfig(candles []internal.Ca
 	return signals
 }
 
-func (s *WaveletDenoiseStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *WaveletDenoiseStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &WaveletDenoiseConfig{
-		LookbackPeriod: 20,
-		BuyThreshold:   0.005,
-		SellThreshold:  0.01,
-	}
+	bestConfig := s.DefaultConfig().(*WaveletDenoiseConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам (same as support line)
@@ -204,5 +185,12 @@ func (s *WaveletDenoiseStrategy) OptimizeWithConfig(candles []internal.Candle) i
 }
 
 func init() {
-	internal.RegisterStrategy("wavelet_denoise", &WaveletDenoiseStrategy{})
+	internal.RegisterStrategy("wavelet_denoise", &WaveletDenoiseStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &WaveletDenoiseConfig{
+				LookbackPeriod: 20,
+				BuyThreshold:   0.005,
+				SellThreshold:  0.01,
+			},
+		}})
 }

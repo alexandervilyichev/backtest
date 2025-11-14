@@ -42,7 +42,6 @@ package momentum
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -74,18 +73,12 @@ func (c *MAChannelConfig) DefaultConfigString() string {
 		c.FastPeriod, c.SlowPeriod, c.Multiplier)
 }
 
-type MAChannelStrategy struct{}
+type MAChannelStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *MAChannelStrategy) Name() string {
 	return "ma_channel"
-}
-
-func (s *MAChannelStrategy) DefaultConfig() internal.StrategyConfig {
-	return &MAChannelConfig{
-		FastPeriod: 10,
-		SlowPeriod: 20,
-		Multiplier: 1.0,
-	}
 }
 
 func (s *MAChannelStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -138,20 +131,9 @@ func (s *MAChannelStrategy) GenerateSignalsWithConfig(candles []internal.Candle,
 	return signals
 }
 
-func (s *MAChannelStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *MAChannelStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &MAChannelConfig{
-		FastPeriod: 10,
-		SlowPeriod: 20,
-		Multiplier: 1.0,
-	}
+
+	bestConfig := s.DefaultConfig().(*MAChannelConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам
@@ -188,5 +170,13 @@ func (s *MAChannelStrategy) OptimizeWithConfig(candles []internal.Candle) intern
 }
 
 func init() {
-	internal.RegisterStrategy("ma_channel", &MAChannelStrategy{})
+	internal.RegisterStrategy("ma_channel", &MAChannelStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &MAChannelConfig{
+				FastPeriod: 10,
+				SlowPeriod: 20,
+				Multiplier: 1.0,
+			},
+		},
+	})
 }

@@ -42,7 +42,6 @@ package oscillators
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -75,9 +74,9 @@ func (c *CCIConfig) DefaultConfigString() string {
 		c.Period, c.BuyLevel, c.SellLevel)
 }
 
-type CciOscillatorStrategy struct{}
+type CCIOscillatorStrategy struct{ internal.BaseConfig }
 
-func (s *CciOscillatorStrategy) Name() string {
+func (s *CCIOscillatorStrategy) Name() string {
 	return "cci_oscillator"
 }
 
@@ -134,15 +133,7 @@ func calculateCCI(candles []internal.Candle, period int) []float64 {
 	return cci
 }
 
-func (s *CciOscillatorStrategy) DefaultConfig() internal.StrategyConfig {
-	return &CCIConfig{
-		Period:    20,
-		BuyLevel:  -100.0,
-		SellLevel: 100.0,
-	}
-}
-
-func (s *CciOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+func (s *CCIOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
 	cciConfig, ok := config.(*CCIConfig)
 	if !ok {
 		return make([]internal.SignalType, len(candles))
@@ -189,20 +180,8 @@ func (s *CciOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Can
 	return signals
 }
 
-func (s *CciOscillatorStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
-func (s *CciOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &CCIConfig{
-		Period:    20,
-		BuyLevel:  -100.0,
-		SellLevel: 100.0,
-	}
+func (s *CCIOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := s.DefaultConfig().(*CCIConfig)
 	bestProfit := -1.0
 
 	// Более широкий и детальный grid search
@@ -235,5 +214,13 @@ func (s *CciOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) in
 }
 
 func init() {
-	internal.RegisterStrategy("cci_oscillator", &CciOscillatorStrategy{})
+	internal.RegisterStrategy("cci_oscillator", &CCIOscillatorStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &CCIConfig{
+				Period:    20,
+				BuyLevel:  -100.0,
+				SellLevel: 100.0,
+			},
+		},
+	})
 }

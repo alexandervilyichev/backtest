@@ -2,7 +2,6 @@ package spline
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"fmt"
 	"math"
 )
@@ -35,17 +34,10 @@ type SplineSegment struct {
 	IsAscending bool
 }
 
-type LinearAlternatingSplineStrategy struct{}
+type LinearAlternatingSplineStrategy struct{ internal.BaseConfig }
 
 func (s *LinearAlternatingSplineStrategy) Name() string {
 	return "linear_alternating_spline"
-}
-
-func (s *LinearAlternatingSplineStrategy) DefaultConfig() internal.StrategyConfig {
-	return &LinearAlternatingSplineConfig{
-		MinSegmentLength: 5,
-		MinSlope:         0.001,
-	}
 }
 
 func (s *LinearAlternatingSplineStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -98,19 +90,6 @@ func (s *LinearAlternatingSplineStrategy) GenerateSignalsWithConfig(candles []in
 			}
 		}
 	}
-
-	// If last segment is ascending and has sufficient slope, generate SELL signal at the end
-	// if len(segments) > 0 && segments[len(segments)-1].IsAscending {
-	// 	lastIdx := len(signals) - 1
-	// 	signals[lastIdx] = internal.SELL
-	// }
-
-	// Print spline parameters
-	// fmt.Println("Spline Parameters:")
-	// for i, segment := range segments {
-	// 	fmt.Printf("Segment %d: StartIdx=%d, EndIdx=%d, Slope=%.6f, Intercept=%.6f, IsAscending=%t\n",
-	// 		i, segment.StartIdx, segment.EndIdx, segment.Slope, segment.Intercept, segment.IsAscending)
-	// }
 
 	return signals
 }
@@ -228,19 +207,8 @@ func (s *LinearAlternatingSplineStrategy) calculateR2(y []float64, slope, interc
 	return 1 - ssRes/ssTot
 }
 
-func (s *LinearAlternatingSplineStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *LinearAlternatingSplineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &LinearAlternatingSplineConfig{
-		MinSegmentLength: 5,
-		MinSlope:         0.001,
-	}
+	bestConfig := s.DefaultConfig().(*LinearAlternatingSplineConfig)
 	bestProfit := -1.0
 
 	// Grid search over parameter combinations
@@ -276,5 +244,12 @@ func (s *LinearAlternatingSplineStrategy) OptimizeWithConfig(candles []internal.
 }
 
 func init() {
-	internal.RegisterStrategy("linear_alternating_spline", &LinearAlternatingSplineStrategy{})
+	internal.RegisterStrategy("linear_alternating_spline", &LinearAlternatingSplineStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &LinearAlternatingSplineConfig{
+				MinSegmentLength: 5,
+				MinSlope:         0.001,
+			},
+		},
+	})
 }

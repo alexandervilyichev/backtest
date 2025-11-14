@@ -40,7 +40,6 @@ package volume
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -61,16 +60,10 @@ func (c *VolumeBreakoutConfig) DefaultConfigString() string {
 		c.Multiplier)
 }
 
-type VolumeBreakoutStrategy struct{}
+type VolumeBreakoutStrategy struct{ internal.BaseConfig }
 
 func (s *VolumeBreakoutStrategy) Name() string {
 	return "volume_breakout"
-}
-
-func (s *VolumeBreakoutStrategy) DefaultConfig() internal.StrategyConfig {
-	return &VolumeBreakoutConfig{
-		Multiplier: 1.5,
-	}
 }
 
 func (s *VolumeBreakoutStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -124,21 +117,11 @@ func (s *VolumeBreakoutStrategy) GenerateSignalsWithConfig(candles []internal.Ca
 	return signals
 }
 
-func (s *VolumeBreakoutStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *VolumeBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &VolumeBreakoutConfig{
-		Multiplier: 1.5,
-	}
+	bestConfig := s.DefaultConfig().(*VolumeBreakoutConfig)
 	bestProfit := -1.0
 
-	for mult := 1.0; mult <= 3.0; mult += 0.1 {
+	for mult := 0.5; mult <= 30.0; mult += 0.1 {
 		config := &VolumeBreakoutConfig{
 			Multiplier: mult,
 		}
@@ -161,5 +144,11 @@ func (s *VolumeBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle) i
 }
 
 func init() {
-	internal.RegisterStrategy("volume_breakout", &VolumeBreakoutStrategy{})
+	internal.RegisterStrategy("volume_breakout", &VolumeBreakoutStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &VolumeBreakoutConfig{
+				Multiplier: 1.5,
+			},
+		},
+	})
 }

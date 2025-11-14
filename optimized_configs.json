@@ -82,6 +82,19 @@
     "lookback": 15,
     "threshold": 0.8999999999999999
   },
+  "macd": {
+    "fast_period": 20,
+    "slow_period": 36,
+    "signal_period": 6,
+    "trend_period": 200,
+    "volatility_period": 20,
+    "min_signal_strength": 0.3,
+    "stop_loss_percent": 0.07,
+    "take_profit_percent": 0.25,
+    "use_trend_filter": false,
+    "use_volatility_filter": false,
+    "use_signal_strength_filter": false
+  },
   "momentum_breakout": {
     "momentum_period": 5,
     "breakout_threshold": 0.005,
@@ -94,7 +107,9 @@
     "multiplier": 1.9000000000000008,
     "use_divergence": false
   },
-  "optimal_extrema_strategy": {},
+  "optimal_extrema_strategy": {
+    "Config": null
+  },
   "pullback_sell": {
     "sensitivity": 3
   },
@@ -136,7 +151,7 @@
     "sellThreshold": 0.03
   },
   "volume_breakout": {
-    "multiplier": 2.8000000000000016
+    "multiplier": 29.900000000000155
   },
   "wavelet_denoise": {
     "lookback_period": 40,

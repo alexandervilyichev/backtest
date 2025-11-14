@@ -42,7 +42,6 @@ package trend
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -68,7 +67,7 @@ func (c *SupertrendConfig) DefaultConfigString() string {
 		c.Period, c.Multiplier)
 }
 
-type SuperTrendStrategy struct{}
+type SuperTrendStrategy struct{ internal.BaseConfig }
 
 func (s *SuperTrendStrategy) Name() string {
 	return "supertrend"
@@ -181,13 +180,6 @@ func calculateSuperTrend(candles []internal.Candle, period int, multiplier float
 	return superTrend, upTrend
 }
 
-func (s *SuperTrendStrategy) DefaultConfig() internal.StrategyConfig {
-	return &SupertrendConfig{
-		Period:     10,
-		Multiplier: 3.0,
-	}
-}
-
 func (s *SuperTrendStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
 	stConfig, ok := config.(*SupertrendConfig)
 	if !ok {
@@ -237,19 +229,8 @@ func (s *SuperTrendStrategy) GenerateSignalsWithConfig(candles []internal.Candle
 	return signals
 }
 
-func (s *SuperTrendStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *SuperTrendStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &SupertrendConfig{
-		Period:     10,
-		Multiplier: 3.0,
-	}
+	bestConfig := s.DefaultConfig().(*SupertrendConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам
@@ -279,5 +260,12 @@ func (s *SuperTrendStrategy) OptimizeWithConfig(candles []internal.Candle) inter
 }
 
 func init() {
-	internal.RegisterStrategy("supertrend", &SuperTrendStrategy{})
+	internal.RegisterStrategy("supertrend", &SuperTrendStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &SupertrendConfig{
+				Period:     10,
+				Multiplier: 3.0,
+			},
+		},
+	})
 }

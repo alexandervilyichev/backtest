@@ -44,7 +44,6 @@ package extrema
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -533,21 +532,12 @@ func (em *ExtremaModel) train(prices []float64) {
 	}
 }
 
-type ExtremaStrategy struct{}
+type ExtremaStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *ExtremaStrategy) Name() string {
 	return "extrema_strategy"
-}
-
-func (s *ExtremaStrategy) DefaultConfig() internal.StrategyConfig {
-	return &ExtremaConfig{
-		MinDistance:     40,
-		WindowSize:      20,
-		MinStrength:     1.5,
-		LookbackPeriod:  60,
-		SmoothingType:   "ma",
-		SmoothingPeriod: 10,
-	}
 }
 
 func (s *ExtremaStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -596,14 +586,6 @@ func (s *ExtremaStrategy) GenerateSignalsWithConfig(candles []internal.Candle, c
 
 	log.Printf("✅ Анализ экстремумов завершен")
 	return signals
-}
-
-func (s *ExtremaStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
 }
 
 func (s *ExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
@@ -677,5 +659,14 @@ func (s *ExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) internal
 }
 
 func init() {
-	internal.RegisterStrategy("extrema_strategy", &ExtremaStrategy{})
+	internal.RegisterStrategy("extrema_strategy", &ExtremaStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &ExtremaConfig{
+				MinDistance:     40,
+				WindowSize:      20,
+				MinStrength:     1.5,
+				LookbackPeriod:  60,
+				SmoothingType:   "ma",
+				SmoothingPeriod: 10,
+			}}})
 }

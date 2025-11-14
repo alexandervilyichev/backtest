@@ -40,7 +40,6 @@ package volatility
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -66,7 +65,7 @@ func (c *BollingerBandsConfig) DefaultConfigString() string {
 		c.Period, c.Multiplier)
 }
 
-type BollingerBandsStrategy struct{}
+type BollingerBandsStrategy struct{ internal.BaseConfig }
 
 func (s *BollingerBandsStrategy) Name() string {
 	return "bollinger_bands"
@@ -160,13 +159,6 @@ func calculateBollingerBands(candles []internal.Candle, period int, multiplier f
 	return upper, middle, lower
 }
 
-func (s *BollingerBandsStrategy) DefaultConfig() internal.StrategyConfig {
-	return &BollingerBandsConfig{
-		Period:     20,
-		Multiplier: 2.0,
-	}
-}
-
 func (s *BollingerBandsStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
 	bbConfig, ok := config.(*BollingerBandsConfig)
 	if !ok {
@@ -220,19 +212,8 @@ func (s *BollingerBandsStrategy) GenerateSignalsWithConfig(candles []internal.Ca
 	return signals
 }
 
-func (s *BollingerBandsStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *BollingerBandsStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &BollingerBandsConfig{
-		Period:     20,
-		Multiplier: 2.0,
-	}
+	bestConfig := s.DefaultConfig().(*BollingerBandsConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам
@@ -262,5 +243,12 @@ func (s *BollingerBandsStrategy) OptimizeWithConfig(candles []internal.Candle) i
 }
 
 func init() {
-	internal.RegisterStrategy("bollinger_bands", &BollingerBandsStrategy{})
+	internal.RegisterStrategy("bollinger_bands", &BollingerBandsStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &BollingerBandsConfig{
+				Period:     20,
+				Multiplier: 2.0,
+			},
+		},
+	})
 }

@@ -40,7 +40,6 @@ package oscillators
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -70,19 +69,12 @@ func (c *StochasticConfig) DefaultConfigString() string {
 		c.KPeriod, c.DPeriod, c.BuyLevel, c.SellLevel)
 }
 
-type StochasticOscillatorStrategy struct{}
+type StochasticOscillatorStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *StochasticOscillatorStrategy) Name() string {
 	return "stochastic_oscillator"
-}
-
-func (s *StochasticOscillatorStrategy) DefaultConfig() internal.StrategyConfig {
-	return &StochasticConfig{
-		KPeriod:   14,
-		DPeriod:   3,
-		BuyLevel:  20.0,
-		SellLevel: 80.0,
-	}
 }
 
 func (s *StochasticOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -131,21 +123,8 @@ func (s *StochasticOscillatorStrategy) GenerateSignalsWithConfig(candles []inter
 	return signals
 }
 
-func (s *StochasticOscillatorStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *StochasticOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &StochasticConfig{
-		KPeriod:   14,
-		DPeriod:   3,
-		BuyLevel:  20.0,
-		SellLevel: 80.0,
-	}
+	bestConfig := s.DefaultConfig().(*StochasticConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам
@@ -181,5 +160,14 @@ func (s *StochasticOscillatorStrategy) OptimizeWithConfig(candles []internal.Can
 }
 
 func init() {
-	internal.RegisterStrategy("stochastic_oscillator", &StochasticOscillatorStrategy{})
+	internal.RegisterStrategy("stochastic_oscillator", &StochasticOscillatorStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &StochasticConfig{
+				KPeriod:   14,
+				DPeriod:   3,
+				BuyLevel:  20.0,
+				SellLevel: 80.0,
+			},
+		},
+	})
 }

@@ -16,7 +16,6 @@ package volatility
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -189,20 +188,10 @@ func (model *GARCHVolModel) getVolatilityRegime(currentVol, avgVol float64) stri
 	return "NORMAL"
 }
 
-type GARCHVolatilityStrategy struct{}
+type GARCHVolatilityStrategy struct{ internal.BaseConfig }
 
 func (s *GARCHVolatilityStrategy) Name() string {
 	return "garch_volatility_strategy"
-}
-
-func (s *GARCHVolatilityStrategy) DefaultConfig() internal.StrategyConfig {
-	return &GARCHVolatilityConfig{
-		WindowSize:          100,
-		ForecastHorizon:     5,
-		VolatilityThreshold: 0.005, // уменьшили с 0.02 до 0.005
-		TrendThreshold:      0.002, // уменьшили с 0.01 до 0.002
-		UseVolatilityRegime: true,
-	}
 }
 
 // calculateTrendStrength вычисляет силу тренда
@@ -323,7 +312,7 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 					signal = internal.BUY
 					inPosition = true
 					lastTradeIndex = i
-					log.Printf("📈 BUY (низкая волатильность, тренд=%.4f) на свече %d", trendStrength, i)
+					// log.Printf("📈 BUY (низкая волатильность, тренд=%.4f) на свече %d", trendStrength, i)
 				}
 
 			case "HIGH":
@@ -332,7 +321,7 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 					signal = internal.SELL
 					inPosition = false
 					lastTradeIndex = i
-					log.Printf("📉 SELL (высокая волатильность) на свече %d", i)
+					// log.Printf("📉 SELL (высокая волатильность) на свече %d", i)
 				}
 
 			case "NORMAL":
@@ -342,13 +331,13 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 					signal = internal.BUY
 					inPosition = true
 					lastTradeIndex = i
-					log.Printf("📈 BUY (снижение волатильности=%.4f) на свече %d", volChange, i)
+					// log.Printf("📈 BUY (снижение волатильности=%.4f) на свече %d", volChange, i)
 				} else if inPosition && volChange > garchConfig.VolatilityThreshold &&
 					i-lastTradeIndex >= minHoldBars {
 					signal = internal.SELL
 					inPosition = false
 					lastTradeIndex = i
-					log.Printf("📉 SELL (рост волатильности=%.4f) на свече %d", volChange, i)
+					// log.Printf("📉 SELL (рост волатильности=%.4f) на свече %d", volChange, i)
 				}
 			}
 		} else {
@@ -358,13 +347,13 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 				signal = internal.BUY
 				inPosition = true
 				lastTradeIndex = i
-				log.Printf("📈 BUY (простая: волат=%.4f) на свече %d", volChange, i)
+				// log.Printf("📈 BUY (простая: волат=%.4f) на свече %d", volChange, i)
 			} else if inPosition && volChange > garchConfig.VolatilityThreshold &&
 				i-lastTradeIndex >= minHoldBars {
 				signal = internal.SELL
 				inPosition = false
 				lastTradeIndex = i
-				log.Printf("📉 SELL (простая: волат=%.4f) на свече %d", volChange, i)
+				// log.Printf("📉 SELL (простая: волат=%.4f) на свече %d", volChange, i)
 			}
 		}
 
@@ -375,22 +364,8 @@ func (s *GARCHVolatilityStrategy) GenerateSignalsWithConfig(candles []internal.C
 	return signals
 }
 
-func (s *GARCHVolatilityStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *GARCHVolatilityStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &GARCHVolatilityConfig{
-		WindowSize:          100,
-		ForecastHorizon:     5,
-		VolatilityThreshold: 0.02,
-		TrendThreshold:      0.01,
-		UseVolatilityRegime: true,
-	}
+	bestConfig := s.DefaultConfig().(*GARCHVolatilityConfig)
 	bestProfit := -1.0
 
 	// Оптимизируем параметры
@@ -463,5 +438,15 @@ func calculateVariance(data []float64, mean float64) float64 {
 }
 
 func init() {
-	internal.RegisterStrategy("garch_volatility_strategy", &GARCHVolatilityStrategy{})
+	internal.RegisterStrategy("garch_volatility_strategy", &GARCHVolatilityStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &GARCHVolatilityConfig{
+				WindowSize:          100,
+				ForecastHorizon:     5,
+				VolatilityThreshold: 0.005, // уменьшили с 0.02 до 0.005
+				TrendThreshold:      0.002, // уменьшили с 0.01 до 0.002
+				UseVolatilityRegime: true,
+			},
+		},
+	})
 }

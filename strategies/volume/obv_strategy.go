@@ -38,7 +38,6 @@ package volume
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -64,7 +63,7 @@ func (c *OBVConfig) DefaultConfigString() string {
 		c.Period, c.Multiplier, c.UseDivergence)
 }
 
-type OBVStrategy struct{}
+type OBVStrategy struct{ internal.BaseConfig }
 
 func (s *OBVStrategy) Name() string {
 	return "obv_strategy"
@@ -112,14 +111,6 @@ func detectOBVDivergence(candles []internal.Candle, obv []float64, lookback int)
 	bullishDivergence := currentPrice < priceLow && currentOBV > obvLow
 
 	return bullishDivergence, bearishDivergence
-}
-
-func (s *OBVStrategy) DefaultConfig() internal.StrategyConfig {
-	return &OBVConfig{
-		Period:        20,
-		Multiplier:    1.0,
-		UseDivergence: false,
-	}
 }
 
 func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -213,20 +204,8 @@ func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, confi
 	return signals
 }
 
-func (s *OBVStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *OBVStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &OBVConfig{
-		Period:        10,
-		Multiplier:    1.0,
-		UseDivergence: false,
-	}
+	bestConfig := s.DefaultConfig().(*OBVConfig)
 	bestProfit := -1.0
 
 	// Оптимизируем период OBV
@@ -262,5 +241,13 @@ func (s *OBVStrategy) OptimizeWithConfig(candles []internal.Candle) internal.Str
 }
 
 func init() {
-	internal.RegisterStrategy("obv_strategy", &OBVStrategy{})
+	internal.RegisterStrategy("obv_strategy", &OBVStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &OBVConfig{
+				Period:        20,
+				Multiplier:    1.0,
+				UseDivergence: false,
+			},
+		},
+	})
 }

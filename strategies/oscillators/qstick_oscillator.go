@@ -52,7 +52,6 @@ package oscillators
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -90,7 +89,7 @@ func (c *QStickConfig) DefaultConfigString() string {
 		c.Period, c.BuyThreshold, c.SellThreshold, c.StopLossPercent, c.TakeProfitPercent, c.VolatilityFilter)
 }
 
-type QstickOscillatorStrategy struct{}
+type QstickOscillatorStrategy struct{ internal.BaseConfig }
 
 func (s *QstickOscillatorStrategy) Name() string {
 	return "qstick_oscillator"
@@ -167,17 +166,6 @@ func calculateTrendDirection(candles []internal.Candle, period int) []float64 {
 	}
 
 	return trend
-}
-
-func (s *QstickOscillatorStrategy) DefaultConfig() internal.StrategyConfig {
-	return &QStickConfig{
-		Period:            12,
-		BuyThreshold:      -1.5,
-		SellThreshold:     0.2,
-		StopLossPercent:   1.0,
-		TakeProfitPercent: 6.0,
-		VolatilityFilter:  0.0045,
-	}
 }
 
 func (s *QstickOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -279,23 +267,8 @@ func (s *QstickOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.
 	return signals
 }
 
-func (s *QstickOscillatorStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *QstickOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &QStickConfig{
-		Period:            12,
-		BuyThreshold:      -1.5,
-		SellThreshold:     0.2,
-		StopLossPercent:   1.0,
-		TakeProfitPercent: 6.0,
-		VolatilityFilter:  0.0045,
-	}
+	bestConfig := s.DefaultConfig().(*QStickConfig)
 	bestProfit := -1.0
 
 	// Расширенный grid search с новыми параметрами
@@ -341,7 +314,7 @@ func (s *QstickOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle)
 		}
 	}
 
-	fmt.Printf("Лучшие параметры Qstick (SOLID):\n")
+	fmt.Printf("Лучшие параметры Qstick:\n")
 	fmt.Printf("  Период: %d\n", bestConfig.Period)
 	fmt.Printf("  Порог покупки: %.2f\n", bestConfig.BuyThreshold)
 	fmt.Printf("  Порог продажи: %.2f\n", bestConfig.SellThreshold)
@@ -354,5 +327,16 @@ func (s *QstickOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle)
 }
 
 func init() {
-	internal.RegisterStrategy("qstick_oscillator", &QstickOscillatorStrategy{})
+	internal.RegisterStrategy("qstick_oscillator", &QstickOscillatorStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &QStickConfig{
+				Period:            12,
+				BuyThreshold:      -1.5,
+				SellThreshold:     0.2,
+				StopLossPercent:   1.0,
+				TakeProfitPercent: 6.0,
+				VolatilityFilter:  0.0045,
+			},
+		},
+	})
 }

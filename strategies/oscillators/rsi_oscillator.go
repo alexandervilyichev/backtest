@@ -39,7 +39,6 @@ package oscillators
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -65,21 +64,13 @@ func (c *RSIConfig) DefaultConfigString() string {
 		c.Period, c.BuyThreshold, c.SellThreshold)
 }
 
-type RsiOscillatorStrategy struct{}
+type RSIOscillatorStrategy struct{ internal.BaseConfig }
 
-func (s *RsiOscillatorStrategy) Name() string {
+func (s *RSIOscillatorStrategy) Name() string {
 	return "rsi_oscillator"
 }
 
-func (s *RsiOscillatorStrategy) DefaultConfig() internal.StrategyConfig {
-	return &RSIConfig{
-		Period:        14,
-		BuyThreshold:  30.0,
-		SellThreshold: 70.0,
-	}
-}
-
-func (s *RsiOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+func (s *RSIOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
 	rsiConfig, ok := config.(*RSIConfig)
 	if !ok {
 		return make([]internal.SignalType, len(candles))
@@ -118,20 +109,8 @@ func (s *RsiOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Can
 	return signals
 }
 
-func (s *RsiOscillatorStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
-func (s *RsiOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &RSIConfig{
-		Period:        14,
-		BuyThreshold:  30.0,
-		SellThreshold: 70.0,
-	}
+func (s *RSIOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := s.DefaultConfig().(*RSIConfig)
 	bestProfit := -1.0
 
 	// Простой grid search по порогам
@@ -164,5 +143,13 @@ func (s *RsiOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) in
 }
 
 func init() {
-	internal.RegisterStrategy("rsi_oscillator", &RsiOscillatorStrategy{})
+	internal.RegisterStrategy("rsi_oscillator", &RSIOscillatorStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &RSIConfig{
+				Period:        14,
+				BuyThreshold:  30.0,
+				SellThreshold: 70.0,
+			},
+		},
+	})
 }

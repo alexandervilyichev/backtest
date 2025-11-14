@@ -2,7 +2,6 @@ package spline
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"fmt"
 	"math"
 )
@@ -38,17 +37,10 @@ type QuadraticSplineSegment struct {
 	InflectionX float64 // x-coordinate of inflection point (where derivative = 0)
 }
 
-type QuadraticVariableTrendSplineStrategy struct{}
+type QuadraticVariableTrendSplineStrategy struct{ internal.BaseConfig }
 
 func (s *QuadraticVariableTrendSplineStrategy) Name() string {
 	return "quadratic_variable_trend_spline"
-}
-
-func (s *QuadraticVariableTrendSplineStrategy) DefaultConfig() internal.StrategyConfig {
-	return &QuadraticVariableTrendSplineConfig{
-		MinSegmentLength: 5,
-		MaxSegmentLength: 50,
-	}
 }
 
 func (s *QuadraticVariableTrendSplineStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -295,26 +287,14 @@ func (s *QuadraticVariableTrendSplineStrategy) calculateQuadraticR2(y []float64,
 	return 1 - ssRes/ssTot
 }
 
-func (s *QuadraticVariableTrendSplineStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &QuadraticVariableTrendSplineConfig{
-		MinSegmentLength: 5,
-		MaxSegmentLength: 50,
-	}
+	bestConfig := s.DefaultConfig().(*QuadraticVariableTrendSplineConfig)
 	bestProfit := -1.0
 
 	// tmos 8 97
 	// tbru 71 414
 
 	for minLen := 10; minLen < 80; minLen += 10 {
-
 		for maxLen := 50; maxLen < 420; maxLen += 10 {
 			if maxLen < minLen {
 				continue
@@ -348,5 +328,12 @@ func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []inte
 }
 
 func init() {
-	internal.RegisterStrategy("quadratic_variable_trend_spline", &QuadraticVariableTrendSplineStrategy{})
+	internal.RegisterStrategy("quadratic_variable_trend_spline", &QuadraticVariableTrendSplineStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &QuadraticVariableTrendSplineConfig{
+				MinSegmentLength: 5,
+				MaxSegmentLength: 50,
+			},
+		},
+	})
 }

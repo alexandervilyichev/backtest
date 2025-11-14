@@ -97,26 +97,12 @@ func (c *MACDConfig) DefaultConfigString() string {
 		c.FastPeriod, c.SlowPeriod, c.SignalPeriod, c.TrendPeriod, c.VolatilityPeriod, c.MinSignalStrength)
 }
 
-type MACDStrategy struct{}
+type MACDStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *MACDStrategy) Name() string {
 	return "macd"
-}
-
-func (s *MACDStrategy) DefaultConfig() internal.StrategyConfig {
-	return &MACDConfig{
-		FastPeriod:              12,
-		SlowPeriod:              26,
-		SignalPeriod:            9,
-		TrendPeriod:             50, // Уменьшил с 200 до 50 для менее строгого фильтра
-		VolatilityPeriod:        20,
-		MinSignalStrength:       0.05, // Уменьшил с 0.1 до 0.05 для менее строгого фильтра
-		StopLossPercent:         0.05, // 5%
-		TakeProfitPercent:       0.15, // 15%
-		UseTrendFilter:          true,
-		UseVolatilityFilter:     false, // Отключаем по умолчанию для большего количества сигналов
-		UseSignalStrengthFilter: false, // Отключаем по умолчанию для большего количества сигналов
-	}
 }
 
 func (s *MACDStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -283,16 +269,7 @@ func (s *MACDStrategy) checkExitConditions(currentPrice, stopLoss, takeProfit fl
 }
 
 func (s *MACDStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &MACDConfig{
-		FastPeriod:        12,
-		SlowPeriod:        26,
-		SignalPeriod:      9,
-		TrendPeriod:       200,
-		VolatilityPeriod:  20,
-		MinSignalStrength: 0.1,
-		StopLossPercent:   0.05,
-		TakeProfitPercent: 0.15,
-	}
+	bestConfig := s.DefaultConfig().(*MACDConfig)
 	bestProfit := -1.0
 
 	// Расширенный grid search по параметрам
@@ -342,33 +319,22 @@ func (s *MACDStrategy) OptimizeWithConfig(candles []internal.Candle) internal.St
 	return bestConfig
 }
 
-func (s *MACDStrategy) LoadConfigFromMap(configMap map[string]interface{}) internal.StrategyConfig {
-	config := &MACDConfig{
-		FastPeriod:              12,
-		SlowPeriod:              26,
-		SignalPeriod:            9,
-		TrendPeriod:             50,
-		VolatilityPeriod:        20,
-		MinSignalStrength:       0.05,
-		StopLossPercent:         0.05,
-		TakeProfitPercent:       0.15,
-		UseTrendFilter:          true,
-		UseVolatilityFilter:     false,
-		UseSignalStrengthFilter: false,
-	}
-	if val, ok := configMap["fast_period"].(float64); ok {
-		config.FastPeriod = int(val)
-	}
-	if val, ok := configMap["slow_period"].(float64); ok {
-
-		config.SlowPeriod = int(val)
-	}
-	if val, ok := configMap["signal_period"].(float64); ok {
-		config.SignalPeriod = int(val)
-	}
-	return config
-}
-
 func init() {
-	// internal.RegisterStrategy("macd", &MACDStrategy{})
+	internal.RegisterStrategy("macd", &MACDStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &MACDConfig{
+				FastPeriod:              12,
+				SlowPeriod:              26,
+				SignalPeriod:            9,
+				TrendPeriod:             50, // Уменьшил с 200 до 50 для менее строгого фильтра
+				VolatilityPeriod:        20,
+				MinSignalStrength:       0.05, // Уменьшил с 0.1 до 0.05 для менее строгого фильтра
+				StopLossPercent:         0.05, // 5%
+				TakeProfitPercent:       0.15, // 15%
+				UseTrendFilter:          true,
+				UseVolatilityFilter:     false, // Отключаем по умолчанию для большего количества сигналов
+				UseSignalStrengthFilter: false, // Отключаем по умолчанию для большего количества сигналов
+			},
+		},
+	})
 }

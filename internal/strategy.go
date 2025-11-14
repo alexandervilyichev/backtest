@@ -14,11 +14,32 @@ type StrategyConfig interface {
 
 // New SOLID architecture interfaces - will replace StrategyParams eventually
 type Strategy interface {
+	Config
+
 	Name() string
-	DefaultConfig() StrategyConfig
 	GenerateSignalsWithConfig(candles []Candle, config StrategyConfig) []SignalType
 	OptimizeWithConfig(candles []Candle) StrategyConfig
-	LoadConfigFromMap(configMap json.RawMessage) StrategyConfig
+}
+
+type Config interface {
+	DefaultConfig() StrategyConfig
+	LoadConfigFromMap(raw json.RawMessage) StrategyConfig
+}
+
+type BaseConfig struct {
+	Config StrategyConfig
+}
+
+func (s *BaseConfig) DefaultConfig() StrategyConfig {
+	return s.Config
+}
+
+func (s *BaseConfig) LoadConfigFromMap(raw json.RawMessage) StrategyConfig {
+	config := s.Config
+	if err := json.Unmarshal(raw, config); err != nil {
+		return nil
+	}
+	return config
 }
 
 var strategies = make(map[string]Strategy)

@@ -40,7 +40,6 @@ package volatility
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -76,7 +75,7 @@ func (c *MomentumBreakoutConfig) DefaultConfigString() string {
 }
 
 // MomentumBreakoutStrategy представляет стратегию прорыва с моментумом
-type MomentumBreakoutStrategy struct{}
+type MomentumBreakoutStrategy struct{ internal.BaseConfig }
 
 // Name возвращает название стратегии
 func (s *MomentumBreakoutStrategy) Name() string {
@@ -133,16 +132,6 @@ func findDynamicLevels(prices []float64, lookback int) (support, resistance []fl
 	}
 
 	return support, resistance
-}
-
-// Optimize оптимизирует параметры стратегии
-func (s *MomentumBreakoutStrategy) DefaultConfig() internal.StrategyConfig {
-	return &MomentumBreakoutConfig{
-		MomentumPeriod:    10,
-		BreakoutThreshold: 0.01,
-		VolumeMultiplier:  1.5,
-		VolatilityFilter:  0.003,
-	}
 }
 
 func (s *MomentumBreakoutStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -259,21 +248,8 @@ func (s *MomentumBreakoutStrategy) GenerateSignalsWithConfig(candles []internal.
 	return signals
 }
 
-func (s *MomentumBreakoutStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *MomentumBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &MomentumBreakoutConfig{
-		MomentumPeriod:    10,
-		BreakoutThreshold: 0.01,
-		VolumeMultiplier:  1.5,
-		VolatilityFilter:  0.003,
-	}
+	bestConfig := s.DefaultConfig().(*MomentumBreakoutConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам
@@ -311,5 +287,14 @@ func (s *MomentumBreakoutStrategy) OptimizeWithConfig(candles []internal.Candle)
 }
 
 func init() {
-	internal.RegisterStrategy("momentum_breakout", &MomentumBreakoutStrategy{})
+	internal.RegisterStrategy("momentum_breakout", &MomentumBreakoutStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &MomentumBreakoutConfig{
+				MomentumPeriod:    10,
+				BreakoutThreshold: 0.01,
+				VolumeMultiplier:  1.5,
+				VolatilityFilter:  0.003,
+			},
+		},
+	})
 }

@@ -39,7 +39,6 @@ package trend
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -67,20 +66,13 @@ func (c *MACrossoverConfig) DefaultConfigString() string {
 		c.FastPeriod, c.SlowPeriod)
 }
 
-type MovingAverageCrossoverStrategy struct{}
+type MACrossoverStrategy struct{ internal.BaseConfig }
 
-func (s *MovingAverageCrossoverStrategy) Name() string {
+func (s *MACrossoverStrategy) Name() string {
 	return "ma_crossover"
 }
 
-func (s *MovingAverageCrossoverStrategy) DefaultConfig() internal.StrategyConfig {
-	return &MACrossoverConfig{
-		FastPeriod: 10,
-		SlowPeriod: 20,
-	}
-}
-
-func (s *MovingAverageCrossoverStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+func (s *MACrossoverStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
 	maConfig, ok := config.(*MACrossoverConfig)
 	if !ok {
 		return make([]internal.SignalType, len(candles))
@@ -136,19 +128,8 @@ func (s *MovingAverageCrossoverStrategy) GenerateSignalsWithConfig(candles []int
 	return signals
 }
 
-func (s *MovingAverageCrossoverStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
-func (s *MovingAverageCrossoverStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &MACrossoverConfig{
-		FastPeriod: 10,
-		SlowPeriod: 20,
-	}
+func (s *MACrossoverStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+	bestConfig := s.DefaultConfig().(*MACrossoverConfig)
 	bestProfit := -1.0
 
 	// Оптимизируем периоды скользящих средних
@@ -178,5 +159,12 @@ func (s *MovingAverageCrossoverStrategy) OptimizeWithConfig(candles []internal.C
 }
 
 func init() {
-	internal.RegisterStrategy("ma_crossover", &MovingAverageCrossoverStrategy{})
+	internal.RegisterStrategy("ma_crossover", &MACrossoverStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &MACrossoverConfig{
+				FastPeriod: 10,
+				SlowPeriod: 20,
+			},
+		},
+	})
 }

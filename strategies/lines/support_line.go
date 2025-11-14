@@ -45,7 +45,6 @@ package lines
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -77,18 +76,12 @@ func (c *SupportLineConfig) DefaultConfigString() string {
 		c.LookbackPeriod, c.BuyThreshold, c.SellThreshold)
 }
 
-type SupportLineStrategy struct{}
+type SupportLineStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *SupportLineStrategy) Name() string {
 	return "support_line"
-}
-
-func (s *SupportLineStrategy) DefaultConfig() internal.StrategyConfig {
-	return &SupportLineConfig{
-		LookbackPeriod: 20,
-		BuyThreshold:   0.005, // 0.5% от уровня поддержки
-		SellThreshold:  0.015, // 1.5% от уровня поддержки
-	}
 }
 
 func (s *SupportLineStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -145,20 +138,8 @@ func (s *SupportLineStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 	return signals
 }
 
-func (s *SupportLineStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *SupportLineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &SupportLineConfig{
-		LookbackPeriod: 20,
-		BuyThreshold:   0.005,
-		SellThreshold:  0.015,
-	}
+	bestConfig := s.DefaultConfig().(*SupportLineConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам
@@ -191,5 +172,13 @@ func (s *SupportLineStrategy) OptimizeWithConfig(candles []internal.Candle) inte
 }
 
 func init() {
-	internal.RegisterStrategy("support_line", &SupportLineStrategy{})
+	internal.RegisterStrategy("support_line", &SupportLineStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &SupportLineConfig{
+				LookbackPeriod: 20,
+				BuyThreshold:   0.005, // 0.5% от уровня поддержки
+				SellThreshold:  0.015, // 1.5% от уровня поддержки
+			},
+		},
+	})
 }

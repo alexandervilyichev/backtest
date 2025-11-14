@@ -39,7 +39,6 @@ package strategies
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -60,16 +59,10 @@ func (c *PullbackSellConfig) DefaultConfigString() string {
 		c.Sensitivity)
 }
 
-type PullbackSellStrategy struct{}
+type PullbackSellStrategy struct{ internal.BaseConfig }
 
 func (s *PullbackSellStrategy) Name() string {
 	return "pullback_sell"
-}
-
-func (s *PullbackSellStrategy) DefaultConfig() internal.StrategyConfig {
-	return &PullbackSellConfig{
-		Sensitivity: 1,
-	}
 }
 
 func (s *PullbackSellStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -113,18 +106,8 @@ func (s *PullbackSellStrategy) GenerateSignalsWithConfig(candles []internal.Cand
 	return signals
 }
 
-func (s *PullbackSellStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *PullbackSellStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &PullbackSellConfig{
-		Sensitivity: 1,
-	}
+	bestConfig := s.DefaultConfig().(*PullbackSellConfig)
 	bestProfit := -1.0
 
 	for sens := 1; sens <= 3; sens++ {
@@ -150,5 +133,11 @@ func (s *PullbackSellStrategy) OptimizeWithConfig(candles []internal.Candle) int
 }
 
 func init() {
-	internal.RegisterStrategy("pullback_sell", &PullbackSellStrategy{})
+	internal.RegisterStrategy("pullback_sell", &PullbackSellStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &PullbackSellConfig{
+				Sensitivity: 1,
+			},
+		},
+	})
 }

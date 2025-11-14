@@ -43,7 +43,6 @@ package trend
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -71,17 +70,10 @@ func (c *GoldenCrossConfig) DefaultConfigString() string {
 		c.FastPeriod, c.SlowPeriod)
 }
 
-type GoldenCrossStrategy struct{}
+type GoldenCrossStrategy struct{ internal.BaseConfig }
 
 func (s *GoldenCrossStrategy) Name() string {
 	return "golden_cross"
-}
-
-func (s *GoldenCrossStrategy) DefaultConfig() internal.StrategyConfig {
-	return &GoldenCrossConfig{
-		FastPeriod: 12,
-		SlowPeriod: 26,
-	}
 }
 
 func (s *GoldenCrossStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -149,19 +141,8 @@ func (s *GoldenCrossStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 	return signals
 }
 
-func (s *GoldenCrossStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *GoldenCrossStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &GoldenCrossConfig{
-		FastPeriod: 12,
-		SlowPeriod: 26,
-	}
+	bestConfig := s.DefaultConfig().(*GoldenCrossConfig)
 	bestProfit := -1.0
 
 	// Оптимизируем периоды EMA для лучших результатов
@@ -195,5 +176,12 @@ func (s *GoldenCrossStrategy) OptimizeWithConfig(candles []internal.Candle) inte
 }
 
 func init() {
-	internal.RegisterStrategy("golden_cross", &GoldenCrossStrategy{})
+	internal.RegisterStrategy("golden_cross", &GoldenCrossStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &GoldenCrossConfig{
+				FastPeriod: 12,
+				SlowPeriod: 26,
+			},
+		},
+	})
 }

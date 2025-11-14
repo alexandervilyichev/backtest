@@ -19,7 +19,6 @@ package statistical
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -164,19 +163,10 @@ func analyzeSimulations(simulations [][]float64, currentPrice float64) (float64,
 	return meanPrice, stdPrice, probUp
 }
 
-type HestonStrategy struct{}
+type HestonStrategy struct{ internal.BaseConfig }
 
 func (s *HestonStrategy) Name() string {
 	return "heston_strategy"
-}
-
-func (s *HestonStrategy) DefaultConfig() internal.StrategyConfig {
-	return &HestonConfig{
-		WindowSize:      80,    // Уменьшаем окно для более быстрой адаптации
-		PredictionSteps: 3,     // Уменьшаем шаги прогноза для более частых сигналов
-		NumSimulations:  400,   // Немного уменьшаем для скорости
-		Threshold:       0.015, // Снижаем порог с 2% до 1.5%
-	}
 }
 
 func (s *HestonStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -264,10 +254,10 @@ func (s *HestonStrategy) GenerateSignalsWithConfig(candles []internal.Candle, co
 			inPosition = true
 			lastTradeIndex = i
 			buySignals++
-			if buySignals <= 20 { // Логируем только первые 20 сигналов
-				log.Printf("📈 BUY сигнал на свече %d: ожидаемая доходность %.2f%%, вероятность роста %.1f%%",
-					i, expectedReturn*100, probUp*100)
-			}
+			// if buySignals <= 20 { // Логируем только первые 20 сигналов
+			// 	log.Printf("📈 BUY сигнал на свече %d: ожидаемая доходность %.2f%%, вероятность роста %.1f%%",
+			// 		i, expectedReturn*100, probUp*100)
+			// }
 		}
 
 		// SELL сигнал: более мягкие условия
@@ -282,8 +272,8 @@ func (s *HestonStrategy) GenerateSignalsWithConfig(candles []internal.Candle, co
 			inPosition = false
 			lastTradeIndex = i
 			sellSignals++
-			log.Printf("📉 SELL сигнал на свече %d: ожидаемая доходность %.2f%%, вероятность роста %.1f%%, волатильность %.2f%%",
-				i, expectedReturn*100, probUp*100, volatilitySignal*100)
+			// log.Printf("📉 SELL сигнал на свече %d: ожидаемая доходность %.2f%%, вероятность роста %.1f%%, волатильность %.2f%%",
+			// 	i, expectedReturn*100, probUp*100, volatilitySignal*100)
 		}
 
 		signals[i] = signal
@@ -295,21 +285,8 @@ func (s *HestonStrategy) GenerateSignalsWithConfig(candles []internal.Candle, co
 	return signals
 }
 
-func (s *HestonStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *HestonStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &HestonConfig{
-		WindowSize:      100,
-		PredictionSteps: 5,
-		NumSimulations:  500,
-		Threshold:       0.02,
-	}
+	bestConfig := s.DefaultConfig().(*HestonConfig)
 	bestProfit := -1.0
 
 	// Оптимизируем параметры для более активной торговли
@@ -374,5 +351,14 @@ func variance(data []float64, mean float64) float64 {
 }
 
 func init() {
-	internal.RegisterStrategy("heston_strategy", &HestonStrategy{})
+	internal.RegisterStrategy("heston_strategy", &HestonStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &HestonConfig{
+				WindowSize:      80,    // Уменьшаем окно для более быстрой адаптации
+				PredictionSteps: 3,     // Уменьшаем шаги прогноза для более частых сигналов
+				NumSimulations:  400,   // Немного уменьшаем для скорости
+				Threshold:       0.015, // Снижаем порог с 2% до 1.5%
+			},
+		},
+	})
 }

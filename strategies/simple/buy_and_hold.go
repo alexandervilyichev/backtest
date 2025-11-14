@@ -3,7 +3,6 @@ package simple
 
 import (
 	"bt/internal"
-	"encoding/json"
 )
 
 type BuyAndHoldConfig struct{}
@@ -16,14 +15,10 @@ func (c *BuyAndHoldConfig) DefaultConfigString() string {
 	return "BuyAndHold()"
 }
 
-type BuyAndHoldStrategy struct{}
+type BuyAndHoldStrategy struct{ internal.BaseConfig }
 
 func (s *BuyAndHoldStrategy) Name() string {
 	return "buy_and_hold"
-}
-
-func (s *BuyAndHoldStrategy) DefaultConfig() internal.StrategyConfig {
-	return &BuyAndHoldConfig{}
 }
 
 func (s *BuyAndHoldStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -50,14 +45,6 @@ func (s *BuyAndHoldStrategy) GenerateSignalsWithConfig(candles []internal.Candle
 	}
 
 	return signals
-}
-
-func (s *BuyAndHoldStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
 }
 
 func (s *BuyAndHoldStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {

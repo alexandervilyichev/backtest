@@ -23,11 +23,12 @@ package extrema
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"log"
 )
 
-type OptimalExtremaConfig struct{}
+type OptimalExtremaConfig struct {
+	internal.BaseConfig
+}
 
 func (c *OptimalExtremaConfig) Validate() error {
 	return nil // No parameters to validate
@@ -45,7 +46,9 @@ type OptimalExtremaPoint struct {
 }
 
 // OptimalExtremaStrategy реализует стратегию поиска оптимальных пар точек
-type OptimalExtremaStrategy struct{}
+type OptimalExtremaStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *OptimalExtremaStrategy) Name() string {
 	return "optimal_extrema_strategy"
@@ -201,11 +204,6 @@ func (s *OptimalExtremaStrategy) removeOverlapsAndDuplicates(pairs []OptimalExtr
 	return filtered
 }
 
-// Optimize выполняет оптимизацию параметров стратегии (в данной стратегии параметры не требуются)
-func (s *OptimalExtremaStrategy) DefaultConfig() internal.StrategyConfig {
-	return &OptimalExtremaConfig{}
-}
-
 func (s *OptimalExtremaStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
 	optimalExtremaConfig, ok := config.(*OptimalExtremaConfig)
 	if !ok {
@@ -285,14 +283,6 @@ func (s *OptimalExtremaStrategy) GenerateSignalsWithConfig(candles []internal.Ca
 	return signals
 }
 
-func (s *OptimalExtremaStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *OptimalExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
 	log.Printf("🔧 Оптимизация параметров для optimal_extrema_strategy (параметры не требуются)")
 	var bestConfig *OptimalExtremaConfig
@@ -314,5 +304,9 @@ func (s *OptimalExtremaStrategy) OptimizeWithConfig(candles []internal.Candle) i
 }
 
 func init() {
-	internal.RegisterStrategy("optimal_extrema_strategy", &OptimalExtremaStrategy{})
+	internal.RegisterStrategy("optimal_extrema_strategy", &OptimalExtremaStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &OptimalExtremaConfig{},
+		},
+	})
 }

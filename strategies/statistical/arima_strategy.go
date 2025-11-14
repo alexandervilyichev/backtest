@@ -11,7 +11,6 @@ package statistical
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -362,7 +361,7 @@ func (model *ARIMAModel) forecast(originalWindow []float64) float64 {
 	return next
 }
 
-type ARIMAStrategy struct{}
+type ARIMAStrategy struct{ internal.BaseConfig }
 
 func (s *ARIMAStrategy) Name() string {
 	return "arima_strategy"
@@ -443,14 +442,6 @@ func (s *ARIMAStrategy) generateEnhancedSignal(currentPrice, forecastPrice, thre
 	}
 
 	return internal.HOLD
-}
-
-func (s *ARIMAStrategy) DefaultConfig() internal.StrategyConfig {
-	return &ARIMAConfig{
-		ArOrder:   3,
-		DiffOrder: 1,
-		MaOrder:   0,
-	}
 }
 
 func (s *ARIMAStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -552,20 +543,8 @@ func (s *ARIMAStrategy) GenerateSignalsWithConfig(candles []internal.Candle, con
 	return signals
 }
 
-func (s *ARIMAStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *ARIMAStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &ARIMAConfig{
-		ArOrder:   3,
-		DiffOrder: 1,
-		MaOrder:   0,
-	}
+	bestConfig := s.DefaultConfig().(*ARIMAConfig)
 	bestProfit := -1.0
 
 	// Оптимизируем параметры ARIMA
@@ -596,5 +575,13 @@ func (s *ARIMAStrategy) OptimizeWithConfig(candles []internal.Candle) internal.S
 }
 
 func init() {
-	internal.RegisterStrategy("arima_strategy", &ARIMAStrategy{})
+	internal.RegisterStrategy("arima_strategy", &ARIMAStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &ARIMAConfig{
+				ArOrder:   3,
+				DiffOrder: 1,
+				MaOrder:   0,
+			},
+		},
+	})
 }

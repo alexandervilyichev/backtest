@@ -39,7 +39,6 @@ package moving_averages
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -51,7 +50,7 @@ type MAEmaCorrelationConfig struct {
 	Threshold float64 `json:"threshold"`
 }
 
-func (c *MAEmaCorrelationConfig) Validate() error {
+func (c MAEmaCorrelationConfig) Validate() error {
 	if c.MAPeriod <= 0 {
 		return errors.New("ma period must be positive")
 	}
@@ -67,24 +66,17 @@ func (c *MAEmaCorrelationConfig) Validate() error {
 	return nil
 }
 
-func (c *MAEmaCorrelationConfig) DefaultConfigString() string {
+func (c MAEmaCorrelationConfig) DefaultConfigString() string {
 	return fmt.Sprintf("MAEmaCorr(ma=%d, ema=%d, lookbk=%d, thresh=%.2f)",
 		c.MAPeriod, c.EMAPeriod, c.Lookback, c.Threshold)
 }
 
-type MaEmaCorrelationStrategy struct{}
+type MaEmaCorrelationStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *MaEmaCorrelationStrategy) Name() string {
 	return "ma_ema_correlation"
-}
-
-func (s *MaEmaCorrelationStrategy) DefaultConfig() internal.StrategyConfig {
-	return &MAEmaCorrelationConfig{
-		MAPeriod:  20,
-		EMAPeriod: 20,
-		Lookback:  10,
-		Threshold: 0.7,
-	}
 }
 
 func (s *MaEmaCorrelationStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -146,21 +138,9 @@ func (s *MaEmaCorrelationStrategy) GenerateSignalsWithConfig(candles []internal.
 	return signals
 }
 
-func (s *MaEmaCorrelationStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *MaEmaCorrelationStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &MAEmaCorrelationConfig{
-		MAPeriod:  20,
-		EMAPeriod: 20,
-		Lookback:  10,
-		Threshold: 0.7,
-	}
+	bestConfig := s.DefaultConfig().(*MAEmaCorrelationConfig)
+
 	bestProfit := -1.0
 
 	// Оптимизируем параметры
@@ -196,5 +176,14 @@ func (s *MaEmaCorrelationStrategy) OptimizeWithConfig(candles []internal.Candle)
 }
 
 func init() {
-	internal.RegisterStrategy("ma_ema_correlation", &MaEmaCorrelationStrategy{})
+	internal.RegisterStrategy("ma_ema_correlation", &MaEmaCorrelationStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &MAEmaCorrelationConfig{
+				MAPeriod:  20,
+				EMAPeriod: 20,
+				Lookback:  10,
+				Threshold: 0.7,
+			},
+		},
+	})
 }

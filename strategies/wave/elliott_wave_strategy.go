@@ -40,7 +40,6 @@ package strategies
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -248,41 +247,6 @@ func (ewa *ElliottWaveAnalyzer) identifyWavePattern() []WavePoint {
 	return ewa.wavePoints
 }
 
-// checkFibonacciRatio проверяет отношения Фибоначчи между волнами
-// func (ewa *ElliottWaveAnalyzer) checkFibonacciRatio() bool {
-// 	if len(ewa.wavePoints) < 5 {
-// 		return false
-// 	}
-
-// 	// Проверяем отношение волны 2 к волне 1 (должно быть около 0.618)
-// 	if len(ewa.wavePoints) >= 2 {
-// 		wave1 := math.Abs(ewa.wavePoints[1].Price - ewa.wavePoints[0].Price)
-// 		wave2 := math.Abs(ewa.wavePoints[2].Price - ewa.wavePoints[1].Price)
-
-// 		if wave1 > 0 {
-// 			ratio := wave2 / wave1
-// 			if math.Abs(ratio-0.618) < ewa.fibThreshold {
-// 				return true
-// 			}
-// 		}
-// 	}
-
-// 	// Проверяем отношение волны 4 к волне 3
-// 	if len(ewa.wavePoints) >= 4 {
-// 		wave3 := math.Abs(ewa.wavePoints[3].Price - ewa.wavePoints[2].Price)
-// 		wave4 := math.Abs(ewa.wavePoints[4].Price - ewa.wavePoints[3].Price)
-
-// 		if wave3 > 0 {
-// 			ratio := wave4 / wave3
-// 			if math.Abs(ratio-0.382) < ewa.fibThreshold || math.Abs(ratio-0.618) < ewa.fibThreshold {
-// 				return true
-// 			}
-// 		}
-// 	}
-
-// 	return false
-// }
-
 // predictSignal генерирует торговый сигнал на основе волнового анализа
 func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64) internal.SignalType {
 	if len(ewa.wavePoints) < 2 {
@@ -339,27 +303,12 @@ func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64
 	return internal.HOLD
 }
 
-// abs возвращает абсолютное значение
-// func abs(x int) int {
-// 	if x < 0 {
-// 		return -x
-// 	}
-// 	return x
-// }
-
-type ElliottWaveStrategy struct{}
+type ElliottWaveStrategy struct {
+	internal.BaseConfig
+}
 
 func (s *ElliottWaveStrategy) Name() string {
 	return "elliott_wave"
-}
-
-func (s *ElliottWaveStrategy) DefaultConfig() internal.StrategyConfig {
-	return &ElliottWaveConfig{
-		MinWaveLength:      5,
-		MaxWaveLength:      50,
-		FibonacciThreshold: 0.618,
-		TrendStrength:      0.3,
-	}
 }
 
 func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
@@ -426,21 +375,8 @@ func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 	return signals
 }
 
-func (s *ElliottWaveStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *ElliottWaveStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &ElliottWaveConfig{
-		MinWaveLength:      5,
-		MaxWaveLength:      50,
-		FibonacciThreshold: 0.618,
-		TrendStrength:      0.3,
-	}
+	bestConfig := s.DefaultConfig().(*ElliottWaveConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам
@@ -478,5 +414,14 @@ func (s *ElliottWaveStrategy) OptimizeWithConfig(candles []internal.Candle) inte
 }
 
 func init() {
-	internal.RegisterStrategy("elliott_wave", &ElliottWaveStrategy{})
+	internal.RegisterStrategy("elliott_wave", &ElliottWaveStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &ElliottWaveConfig{
+				MinWaveLength:      5,
+				MaxWaveLength:      50,
+				FibonacciThreshold: 0.618,
+				TrendStrength:      0.3,
+			},
+		},
+	})
 }

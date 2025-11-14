@@ -44,7 +44,6 @@ package volatility
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -74,7 +73,7 @@ func (c *UlcerIndexConfig) DefaultConfigString() string {
 		c.Period, c.BuyThreshold, c.SellThreshold)
 }
 
-type UlcerIndexStrategy struct{}
+type UlcerIndexStrategy struct{ internal.BaseConfig }
 
 func (s *UlcerIndexStrategy) Name() string {
 	return "ulcer_index"
@@ -124,14 +123,6 @@ func calculateUlcerIndex(candles []internal.Candle, period int) []float64 {
 	return ulcerIndex
 }
 
-func (s *UlcerIndexStrategy) DefaultConfig() internal.StrategyConfig {
-	return &UlcerIndexConfig{
-		Period:        14,
-		BuyThreshold:  0.05, // BUY когда UI < 5%
-		SellThreshold: 0.15, // SELL когда UI > 15%
-	}
-}
-
 func (s *UlcerIndexStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
 	uiConfig, ok := config.(*UlcerIndexConfig)
 	if !ok {
@@ -173,20 +164,8 @@ func (s *UlcerIndexStrategy) GenerateSignalsWithConfig(candles []internal.Candle
 	return signals
 }
 
-func (s *UlcerIndexStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *UlcerIndexStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &UlcerIndexConfig{
-		Period:        14,
-		BuyThreshold:  0.05,
-		SellThreshold: 0.15,
-	}
+	bestConfig := s.DefaultConfig().(*UlcerIndexConfig)
 	bestProfit := -1.0
 
 	// Grid search по параметрам
@@ -219,5 +198,13 @@ func (s *UlcerIndexStrategy) OptimizeWithConfig(candles []internal.Candle) inter
 }
 
 func init() {
-	internal.RegisterStrategy("ulcer_index", &UlcerIndexStrategy{})
+	internal.RegisterStrategy("ulcer_index", &UlcerIndexStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &UlcerIndexConfig{
+				Period:        14,
+				BuyThreshold:  0.05, // BUY когда UI < 5%
+				SellThreshold: 0.15, // SELL когда UI > 15%
+			},
+		},
+	})
 }

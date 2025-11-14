@@ -34,7 +34,6 @@ package oscillators
 
 import (
 	"bt/internal"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -65,7 +64,9 @@ func (c *AOConfig) DefaultConfigString() string {
 }
 
 // AwesomeOscillatorStrategy реализует стратегию Чудесного осциллятора Билла Вильямса.
-type AwesomeOscillatorStrategy struct{}
+type AwesomeOscillatorStrategy struct {
+	internal.BaseConfig
+}
 
 // Name возвращает имя стратегии.
 func (s *AwesomeOscillatorStrategy) Name() string {
@@ -135,14 +136,6 @@ func calculateAO(candles []internal.Candle, fastPeriod, slowPeriod int) []float6
 	return ao
 }
 
-func (s *AwesomeOscillatorStrategy) DefaultConfig() internal.StrategyConfig {
-	return &AOConfig{
-		FastPeriod:          5,
-		SlowPeriod:          34,
-		ConfirmByTwoCandles: false,
-	}
-}
-
 func (s *AwesomeOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
 	aoConfig, ok := config.(*AOConfig)
 	if !ok {
@@ -208,20 +201,8 @@ func (s *AwesomeOscillatorStrategy) GenerateSignalsWithConfig(candles []internal
 	return signals
 }
 
-func (s *AwesomeOscillatorStrategy) LoadConfigFromMap(raw json.RawMessage) internal.StrategyConfig {
-	config := s.DefaultConfig()
-	if err := json.Unmarshal(raw, config); err != nil {
-		return nil
-	}
-	return config
-}
-
 func (s *AwesomeOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := &AOConfig{
-		FastPeriod:          5,
-		SlowPeriod:          34,
-		ConfirmByTwoCandles: false,
-	}
+	bestConfig := s.DefaultConfig().(*AOConfig)
 	bestProfit := -1.0
 
 	// Перебираем параметры
@@ -265,5 +246,13 @@ func (s *AwesomeOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle
 
 // init регистрирует стратегию в фабрике стратегий при старте программы.
 func init() {
-	internal.RegisterStrategy("awesome_oscillator", &AwesomeOscillatorStrategy{})
+	internal.RegisterStrategy("awesome_oscillator", &AwesomeOscillatorStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &AOConfig{
+				FastPeriod:          5,
+				SlowPeriod:          34,
+				ConfirmByTwoCandles: false,
+			},
+		},
+	})
 }
