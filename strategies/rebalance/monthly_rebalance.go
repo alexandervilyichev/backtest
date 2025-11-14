@@ -161,5 +161,9 @@ func (s *MonthlyRebalanceStrategy) OptimizeWithConfig(candles []internal.Candle)
 }
 
 func init() {
-	internal.RegisterStrategy("monthly_rebalance", &MonthlyRebalanceStrategy{})
+	internal.RegisterStrategy("monthly_rebalance", &MonthlyRebalanceStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &MonthlyRebalanceConfig{},
+		},
+	})
 }

@@ -53,5 +53,9 @@ func (s *BuyAndHoldStrategy) OptimizeWithConfig(candles []internal.Candle) inter
 }
 
 func init() {
-	internal.RegisterStrategy("buy_and_hold", &BuyAndHoldStrategy{})
+	internal.RegisterStrategy("buy_and_hold", &BuyAndHoldStrategy{
+		BaseConfig: internal.BaseConfig{
+			Config: &BuyAndHoldConfig{},
+		},
+	})
 }

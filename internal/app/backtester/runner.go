@@ -35,18 +35,14 @@ func (r *RunnerBase) loadConfigsFromFile() {
 		return
 	}
 
+	r.slipping = 0.01
 	// Извлекаем глобальный параметр проскальзывания
 	if slippingVal, exists := allConfigs["slipping"]; exists {
 		if err := json.Unmarshal(slippingVal, &r.slipping); err != nil {
 			r.slipping = 0.01 // значение по умолчанию
 			fmt.Printf("⚠️  Неверный тип параметра проскальзывания, используем значение по умолчанию: %.4f\n", r.slipping)
 
-		} else {
-			fmt.Printf("✅ Глобальный параметр проскальзывания: %.4f\n", r.slipping)
 		}
-	} else {
-		r.slipping = 0.01 // значение по умолчанию
-		fmt.Printf("⚠️  Параметр проскальзывания не найден, используем значение по умолчанию: %.4f\n", r.slipping)
 	}
 
 	// Удаляем глобальный параметр из конфигураций стратегий
@@ -124,7 +120,7 @@ type ParallelStrategyRunner struct {
 // NewParallelStrategyRunner — конструктор для ParallelStrategyRunner
 func NewParallelStrategyRunner(debug bool) *ParallelStrategyRunner {
 	return &ParallelStrategyRunner{
-		RunnerBase: RunnerBase{debug: debug},
+		RunnerBase: RunnerBase{debug: debug, slipping: 0.01},
 		printer:    NewConsolePrinter(), // По умолчанию консольный принтер
 	}
 }
@@ -132,7 +128,7 @@ func NewParallelStrategyRunner(debug bool) *ParallelStrategyRunner {
 // NewParallelStrategyRunnerWithPrinter — конструктор с кастомным принтером
 func NewParallelStrategyRunnerWithPrinter(debug bool, printer ResultPrinter) *ParallelStrategyRunner {
 	return &ParallelStrategyRunner{
-		RunnerBase: RunnerBase{debug: debug},
+		RunnerBase: RunnerBase{debug: debug, slipping: 0.01},
 		printer:    printer,
 	}
 }
@@ -141,8 +137,9 @@ func NewParallelStrategyRunnerWithPrinter(debug bool, printer ResultPrinter) *Pa
 func NewParallelStrategyRunnerWithConfig(debug bool, printer ResultPrinter, config Config) *ParallelStrategyRunner {
 	runner := &ParallelStrategyRunner{
 		RunnerBase: RunnerBase{
-			debug:  debug,
-			config: config,
+			debug:    debug,
+			config:   config,
+			slipping: 0.01,
 		},
 		printer: printer,
 	}
@@ -284,7 +281,7 @@ type SingleStrategyRunner struct {
 // NewSingleStrategyRunner — конструктор для SingleStrategyRunner
 func NewSingleStrategyRunner(debug bool) *SingleStrategyRunner {
 	return &SingleStrategyRunner{
-		RunnerBase: RunnerBase{debug: debug},
+		RunnerBase: RunnerBase{debug: debug, slipping: 0.01},
 	}
 }
 
@@ -292,8 +289,9 @@ func NewSingleStrategyRunner(debug bool) *SingleStrategyRunner {
 func NewSingleStrategyRunnerWithConfig(debug bool, config Config) *SingleStrategyRunner {
 	runner := &SingleStrategyRunner{
 		RunnerBase: RunnerBase{
-			debug:  debug,
-			config: config,
+			debug:    debug,
+			config:   config,
+			slipping: 0.01,
 		},
 	}
 

@@ -43,9 +43,12 @@ import (
 )
 
 type OBVConfig struct {
-	Period        int     `json:"period"`
-	Multiplier    float64 `json:"multiplier"`
-	UseDivergence bool    `json:"use_divergence"`
+	Period             int     `json:"period"`
+	Multiplier         float64 `json:"multiplier"`
+	UseDivergence      bool    `json:"use_divergence"`
+	DivergenceLookback int     `json:"divergence_lookback"`
+	PriceDropThreshold float64 `json:"price_drop_threshold"`
+	OBVDropMultiplier  float64 `json:"obv_drop_multiplier"`
 }
 
 func (c *OBVConfig) Validate() error {
@@ -55,12 +58,21 @@ func (c *OBVConfig) Validate() error {
 	if c.Multiplier <= 0 {
 		return errors.New("multiplier must be positive")
 	}
+	if c.DivergenceLookback <= 0 {
+		return errors.New("divergence_lookback must be positive")
+	}
+	if c.PriceDropThreshold <= 0 {
+		return errors.New("price_drop_threshold must be positive")
+	}
+	if c.OBVDropMultiplier <= 0 {
+		return errors.New("obv_drop_multiplier must be positive")
+	}
 	return nil
 }
 
 func (c *OBVConfig) DefaultConfigString() string {
-	return fmt.Sprintf("OBV(period=%d, mult=%.2f, div=%t)",
-		c.Period, c.Multiplier, c.UseDivergence)
+	return fmt.Sprintf("OBV(period=%d, mult=%.2f, div=%t, div_lookback=%d, price_drop=%.3f, obv_drop_mult=%.2f)",
+		c.Period, c.Multiplier, c.UseDivergence, c.DivergenceLookback, c.PriceDropThreshold, c.OBVDropMultiplier)
 }
 
 type OBVStrategy struct{ internal.BaseConfig }
@@ -162,8 +174,8 @@ func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, confi
 
 		// Проверяем дивергенции если включены
 		var bullishDiv, bearishDiv bool
-		if obvConfig.UseDivergence && i >= obvConfig.Period {
-			bullishDiv, bearishDiv = detectOBVDivergence(candles[:i+1], obvAll[:i+1], obvConfig.Period)
+		if obvConfig.UseDivergence && i >= obvConfig.DivergenceLookback {
+			bullishDiv, bearishDiv = detectOBVDivergence(candles[:i+1], obvAll[:i+1], obvConfig.DivergenceLookback)
 		}
 
 		// BUY сигналы (улучшенная логика):
@@ -182,13 +194,13 @@ func (s *OBVStrategy) GenerateSignalsWithConfig(candles []internal.Candle, confi
 		}
 
 		// SELL сигналы (улучшенная логика):
-		// 1. Значительное падение OBV (более 1%)
+		// 1. Значительное падение OBV
 		// 2. Медвежья дивергенция
-		// 3. Цена падает значительно (более 3%)
+		// 3. Цена падает значительно
 		// 4. Слабый рост OBV при падении цены (отсутствие подтверждения)
-		obvDrop := inPosition && i >= obvConfig.Period-1 && avgAbs > 0 && deltaOBV < -obvConfig.Multiplier*avgAbs
-		priceDrop := inPosition && previousPrice > 0 && (currentPrice-previousPrice)/previousPrice <= -0.01 // 1% падение цены
-		weakConfirmation := inPosition && currentPrice < previousPrice && deltaOBV <= 0                     // Цена падает, OBV не подтверждает
+		obvDrop := inPosition && i >= obvConfig.Period-1 && avgAbs > 0 && deltaOBV < -obvConfig.OBVDropMultiplier*avgAbs
+		priceDrop := inPosition && previousPrice > 0 && (currentPrice-previousPrice)/previousPrice <= -obvConfig.PriceDropThreshold
+		weakConfirmation := inPosition && currentPrice < previousPrice && deltaOBV <= 0 // Цена падает, OBV не подтверждает
 
 		sellSignal := obvDrop || priceDrop || weakConfirmation || (inPosition && bearishDiv)
 
@@ -209,33 +221,45 @@ func (s *OBVStrategy) OptimizeWithConfig(candles []internal.Candle) internal.Str
 	bestProfit := -1.0
 
 	// Оптимизируем период OBV
-	for period := 5; period <= 50; period += 5 {
-		// Оптимизируем мультипликатор
-		for mult := 1.0; mult <= 2.0; mult += 0.1 {
+	for period := 25; period <= 90; period += 10 {
+		// Оптимизируем мультипликатор для покупки
+		for mult := 0.5; mult <= 2.5; mult += 0.2 {
 			// Оптимизируем использование дивергенций
-			for useDiv := 0; useDiv <= 1; useDiv++ {
-				config := &OBVConfig{
-					Period:        period,
-					Multiplier:    mult,
-					UseDivergence: useDiv == 1,
-				}
-				if config.Validate() != nil {
-					continue
-				}
+			for useDiv := 0; useDiv <= 0; useDiv++ {
+				// Оптимизируем lookback для дивергенций
+				for divLookback := 10; divLookback <= 50; divLookback += 10 {
+					// Оптимизируем порог падения цены
+					for priceDrop := 0.005; priceDrop <= 0.03; priceDrop += 0.005 {
+						// Оптимизируем мультипликатор для падения OBV
+						for obvDropMult := 0.5; obvDropMult <= 2.0; obvDropMult += 0.25 {
+							config := &OBVConfig{
+								Period:             period,
+								Multiplier:         mult,
+								UseDivergence:      useDiv == 1,
+								DivergenceLookback: divLookback,
+								PriceDropThreshold: priceDrop,
+								OBVDropMultiplier:  obvDropMult,
+							}
+							if config.Validate() != nil {
+								continue
+							}
 
-				signals := s.GenerateSignalsWithConfig(candles, config)
-				result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
+							signals := s.GenerateSignalsWithConfig(candles, config)
+							result := internal.Backtest(candles, signals, 0.01) // 0.01 units проскальзывание
 
-				if result.TotalProfit >= bestProfit {
-					bestProfit = result.TotalProfit
-					bestConfig = config
+							if result.TotalProfit >= bestProfit {
+								bestProfit = result.TotalProfit
+								bestConfig = config
+							}
+						}
+					}
 				}
 			}
 		}
 	}
 
-	fmt.Printf("Лучшие параметры OBV: period=%d, multiplier=%.2f, use_div=%t, профит=%.4f\n",
-		bestConfig.Period, bestConfig.Multiplier, bestConfig.UseDivergence, bestProfit)
+	fmt.Printf("Лучшие параметры OBV: period=%d, multiplier=%.2f, use_div=%t, div_lookback=%d, price_drop=%.3f, obv_drop_mult=%.2f, профит=%.4f\n",
+		bestConfig.Period, bestConfig.Multiplier, bestConfig.UseDivergence, bestConfig.DivergenceLookback, bestConfig.PriceDropThreshold, bestConfig.OBVDropMultiplier, bestProfit)
 
 	return bestConfig
 }
@@ -244,9 +268,12 @@ func init() {
 	internal.RegisterStrategy("obv_strategy", &OBVStrategy{
 		BaseConfig: internal.BaseConfig{
 			Config: &OBVConfig{
-				Period:        20,
-				Multiplier:    1.0,
-				UseDivergence: false,
+				Period:             20,
+				Multiplier:         1.5,
+				UseDivergence:      false,
+				DivergenceLookback: 20,
+				PriceDropThreshold: 0.02,
+				OBVDropMultiplier:  1.5,
 			},
 		},
 	})

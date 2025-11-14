@@ -196,13 +196,11 @@ func runStrategies(config backtester.Config, runner backtester.StrategyRunner, c
 	bnhSignals := bnhStrategy.GenerateSignalsWithConfig(candles, bnhConfig)
 
 	// Получаем значение проскальзывания из runner
-	var slipping float64
+	slipping := 0.01
 	if parallelRunner, ok := runner.(*backtester.ParallelStrategyRunner); ok {
 		slipping = parallelRunner.GetSlipping()
 	} else if singleRunner, ok := runner.(*backtester.SingleStrategyRunner); ok {
 		slipping = singleRunner.GetSlipping()
-	} else {
-		slipping = 0.01 // значение по умолчанию
 	}
 
 	bnhResult = internal.Backtest(candles, bnhSignals, slipping)
