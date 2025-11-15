@@ -12,8 +12,8 @@ import (
 	"bt/internal"
 )
 
-// RunnerBase — базовая структура с общей логикой для запуска стратегий
-type RunnerBase struct {
+// BaseStrategyRunner — базовая структура с общей логикой для запуска стратегий
+type BaseStrategyRunner struct {
 	debug    bool
 	config   Config
 	configs  map[string]json.RawMessage // Загруженные конфигурации из файла
@@ -21,7 +21,7 @@ type RunnerBase struct {
 }
 
 // loadConfigsFromFile — загружает конфигурации стратегий из JSON файла
-func (r *RunnerBase) loadConfigsFromFile() {
+func (r *BaseStrategyRunner) loadConfigsFromFile() {
 	data, err := os.ReadFile(r.config.ConfigFile)
 	if err != nil {
 		fmt.Printf("❌ Ошибка чтения файла конфигурации %s: %v\n", r.config.ConfigFile, err)
@@ -57,7 +57,7 @@ func (r *RunnerBase) loadConfigsFromFile() {
 }
 
 // runSingleStrategy — общая логика запуска одной стратегии
-func (r *RunnerBase) runSingleStrategy(strategyName string, candles []internal.Candle) (*BenchmarkResult, interface{}, error) {
+func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []internal.Candle) (*BenchmarkResult, internal.StrategyConfig, error) {
 	strategy := internal.GetStrategy(strategyName)
 	if strategy == nil {
 		return nil, nil, fmt.Errorf("стратегия %s не найдена", strategyName)
@@ -107,36 +107,36 @@ func (r *RunnerBase) runSingleStrategy(strategyName string, candles []internal.C
 }
 
 // GetSlipping — возвращает значение параметра проскальзывания
-func (r *RunnerBase) GetSlipping() float64 {
+func (r *BaseStrategyRunner) GetSlipping() float64 {
 	return r.slipping
 }
 
 // ParallelStrategyRunner — реализация параллельного запуска стратегий
 type ParallelStrategyRunner struct {
-	RunnerBase
+	BaseStrategyRunner
 	printer ResultPrinter
 }
 
 // NewParallelStrategyRunner — конструктор для ParallelStrategyRunner
 func NewParallelStrategyRunner(debug bool) *ParallelStrategyRunner {
 	return &ParallelStrategyRunner{
-		RunnerBase: RunnerBase{debug: debug, slipping: 0.01},
-		printer:    NewConsolePrinter(), // По умолчанию консольный принтер
+		BaseStrategyRunner: BaseStrategyRunner{debug: debug, slipping: 0.01},
+		printer:            NewConsolePrinter(), // По умолчанию консольный принтер
 	}
 }
 
 // NewParallelStrategyRunnerWithPrinter — конструктор с кастомным принтером
 func NewParallelStrategyRunnerWithPrinter(debug bool, printer ResultPrinter) *ParallelStrategyRunner {
 	return &ParallelStrategyRunner{
-		RunnerBase: RunnerBase{debug: debug, slipping: 0.01},
-		printer:    printer,
+		BaseStrategyRunner: BaseStrategyRunner{debug: debug, slipping: 0.01},
+		printer:            printer,
 	}
 }
 
 // NewParallelStrategyRunnerWithConfig — конструктор с конфигурацией
 func NewParallelStrategyRunnerWithConfig(debug bool, printer ResultPrinter, config Config) *ParallelStrategyRunner {
 	runner := &ParallelStrategyRunner{
-		RunnerBase: RunnerBase{
+		BaseStrategyRunner: BaseStrategyRunner{
 			debug:    debug,
 			config:   config,
 			slipping: 0.01,
@@ -153,7 +153,7 @@ func NewParallelStrategyRunnerWithConfig(debug bool, printer ResultPrinter, conf
 }
 
 // saveOptimizedConfigs — сохраняет оптимизированные конфигурации в JSON файл
-func (r *ParallelStrategyRunner) saveOptimizedConfigs(configs map[string]interface{}) {
+func (r *ParallelStrategyRunner) saveOptimizedConfigs(configs map[string]internal.StrategyConfig) {
 	filename := "optimized_configs.json"
 	data, err := json.MarshalIndent(configs, "", "  ")
 	if err != nil {
@@ -171,7 +171,7 @@ func (r *ParallelStrategyRunner) saveOptimizedConfigs(configs map[string]interfa
 }
 
 // RunStrategyWithConfig — запускает одну стратегию и возвращает результат с конфигурацией
-func (r *ParallelStrategyRunner) RunStrategyWithConfig(strategyName string, candles []internal.Candle) (*BenchmarkResult, interface{}, error) {
+func (r *ParallelStrategyRunner) RunStrategyWithConfig(strategyName string, candles []internal.Candle) (*BenchmarkResult, internal.StrategyConfig, error) {
 	return r.runSingleStrategy(strategyName, candles)
 }
 
@@ -207,7 +207,7 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 
 	// Канал для результатов
 	resultsChan := make(chan BenchmarkResult, totalStrategies)
-	configsChan := make(chan map[string]interface{}, totalStrategies)
+	configsChan := make(chan map[string]internal.StrategyConfig, totalStrategies)
 	var wg sync.WaitGroup
 
 	// Запускаем стратегии параллельно
@@ -222,7 +222,7 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 				return
 			} else {
 				resultsChan <- *result
-				configsChan <- map[string]interface{}{strategyName: config}
+				configsChan <- map[string]internal.StrategyConfig{strategyName: config}
 				fmt.Printf("✅ %-25s │ Прибыль: %+7.2f%% │ Сделки: %4d │ Время: %8v\n",
 					result.Name, result.TotalProfit*100, result.TradeCount, result.ExecutionTime)
 			}
@@ -243,7 +243,7 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 	}
 
 	// Собираем конфигурации для сохранения
-	optimizedConfigs := make(map[string]interface{})
+	optimizedConfigs := make(map[string]internal.StrategyConfig)
 	for configMap := range configsChan {
 		for name, config := range configMap {
 			optimizedConfigs[name] = config
@@ -269,26 +269,26 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 }
 
 // GetSlipping — возвращает значение параметра проскальзывания
-func (r *ParallelStrategyRunner) GetSlipping() float64 {
-	return r.slipping
-}
+// func (r *ParallelStrategyRunner) GetSlipping() float64 {
+// 	return r.slipping
+// }
 
 // SingleStrategyRunner — реализация запуска одной стратегии с бенчмарком
 type SingleStrategyRunner struct {
-	RunnerBase
+	BaseStrategyRunner
 }
 
 // NewSingleStrategyRunner — конструктор для SingleStrategyRunner
 func NewSingleStrategyRunner(debug bool) *SingleStrategyRunner {
 	return &SingleStrategyRunner{
-		RunnerBase: RunnerBase{debug: debug, slipping: 0.01},
+		BaseStrategyRunner: BaseStrategyRunner{debug: debug, slipping: 0.01},
 	}
 }
 
 // NewSingleStrategyRunnerWithConfig — конструктор с конфигурацией
 func NewSingleStrategyRunnerWithConfig(debug bool, config Config) *SingleStrategyRunner {
 	runner := &SingleStrategyRunner{
-		RunnerBase: RunnerBase{
+		BaseStrategyRunner: BaseStrategyRunner{
 			debug:    debug,
 			config:   config,
 			slipping: 0.01,

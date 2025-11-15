@@ -5,7 +5,7 @@
     "ma_order": 0
   },
   "awesome_oscillator": {
-    "fast_period": 7,
+    "fast_period": 3,
     "slow_period": 55,
     "confirm_by_two_candles": true
   },
@@ -15,20 +15,20 @@
   },
   "buy_and_hold": {},
   "cci_oscillator": {
-    "period": 8,
-    "buy_level": -195,
-    "sell_level": 190
+    "period": 6,
+    "buy_level": -160,
+    "sell_level": 170
   },
   "elliott_wave": {
-    "min_wave_length": 5,
+    "min_wave_length": 3,
     "max_wave_length": 80,
     "fibonacci_threshold": 0.7999999999999999,
     "trend_strength": 0.5
   },
   "extrema_strategy": {
-    "min_distance": 50,
+    "min_distance": 30,
     "window_size": 25,
-    "min_strength": 2,
+    "min_strength": 1,
     "lookback_period": 75,
     "smoothing_type": "ema",
     "smoothing_period": 14
@@ -38,10 +38,10 @@
     "momentum_lookback": 10,
     "volatility_lookback": 15,
     "volume_spike": 1.5,
-    "momentum_threshold": 0.01,
+    "momentum_threshold": 0.02,
     "volatility_boost": 1.5,
     "consecutive_bars": 3,
-    "fear_decay": 0.8,
+    "fear_decay": 0.9,
     "greed_multiplier": 1.3,
     "max_fomo_strength": 3,
     "cooldown_period": 5
@@ -49,22 +49,22 @@
   "garch_volatility_strategy": {
     "window_size": 150,
     "forecast_horizon": 10,
-    "volatility_threshold": 0.01,
+    "volatility_threshold": 0.02,
     "trend_threshold": 0.02,
     "use_volatility_regime": false
   },
   "golden_cross": {
-    "fast_period": 152,
-    "slow_period": 190
+    "fast_period": 22,
+    "slow_period": 125
   },
   "heston_strategy": {
-    "window_size": 80,
+    "window_size": 120,
     "prediction_steps": 5,
     "num_simulations": 300,
-    "threshold": 0.012
+    "threshold": 0.025
   },
   "linear_alternating_spline": {
-    "min_segment_length": 5,
+    "min_segment_length": 30,
     "min_slope": 0.0005
   },
   "ma_channel": {
@@ -73,37 +73,37 @@
     "multiplier": 0.5
   },
   "ma_crossover": {
-    "fast_period": 5,
+    "fast_period": 15,
     "slow_period": 30
   },
   "ma_ema_correlation": {
-    "ma_period": 15,
-    "ema_period": 10,
-    "lookback": 10,
-    "threshold": 0.8999999999999999
+    "ma_period": 10,
+    "ema_period": 15,
+    "lookback": 15,
+    "threshold": 0.7999999999999999
   },
   "macd": {
-    "fast_period": 10,
-    "slow_period": 18,
-    "signal_period": 6,
+    "fast_period": 20,
+    "slow_period": 36,
+    "signal_period": 14,
     "trend_period": 200,
     "volatility_period": 20,
     "min_signal_strength": 0.3,
-    "stop_loss_percent": 0.03,
-    "take_profit_percent": 0.25,
+    "stop_loss_percent": 0.04,
+    "take_profit_percent": 0.2,
     "use_trend_filter": false,
     "use_volatility_filter": false,
     "use_signal_strength_filter": false
   },
   "momentum_breakout": {
-    "momentum_period": 20,
-    "breakout_threshold": 0.025,
-    "volume_multiplier": 1.9999999999999998,
-    "volatility_filter": 0.005
+    "momentum_period": 15,
+    "breakout_threshold": 0.005,
+    "volume_multiplier": 1.4,
+    "volatility_filter": 0.002
   },
   "monthly_rebalance": {},
   "obv_strategy": {
-    "period": 25,
+    "period": 65,
     "multiplier": 2.5,
     "use_divergence": false,
     "divergence_lookback": 50,
@@ -117,47 +117,47 @@
     "sensitivity": 3
   },
   "qstick_oscillator": {
-    "period": 13,
+    "period": 17,
     "buy_threshold": -2,
     "sell_threshold": 0.2,
     "stop_loss_percent": 2,
-    "take_profit_percent": 4,
+    "take_profit_percent": 7,
     "volatility_filter": 0.0035
   },
   "quadratic_variable_trend_spline": {
     "min_segment_length": 10,
-    "max_segment_length": 250
+    "max_segment_length": 150
   },
   "rsi_oscillator": {
-    "period": 20,
-    "buy_threshold": 13,
-    "sell_threshold": 80
+    "period": 11,
+    "buy_threshold": 14,
+    "sell_threshold": 79
   },
   "stochastic_oscillator": {
-    "k_period": 12,
-    "d_period": 4,
-    "buy_level": 25,
+    "k_period": 10,
+    "d_period": 5,
+    "buy_level": 15,
     "sell_level": 85
   },
   "supertrend": {
-    "period": 14,
+    "period": 11,
     "multiplier": 4
   },
   "support_line": {
-    "lookback_period": 50,
+    "lookback_period": 48,
     "buy_threshold": 0.019000000000000003,
     "sell_threshold": 0.029999999999999936
   },
   "ulcer_index": {
-    "period": 360,
-    "buyThreshold": 0.028000000000000004,
-    "sellThreshold": 0.06800000000000003
+    "period": 340,
+    "buyThreshold": 0.024,
+    "sellThreshold": 0.058000000000000024
   },
   "volume_breakout": {
     "multiplier": 29.900000000000155
   },
   "wavelet_denoise": {
-    "lookback_period": 15,
+    "lookback_period": 10,
     "buy_threshold": 0.019000000000000003,
     "sell_threshold": 0.049999999999999996
   }

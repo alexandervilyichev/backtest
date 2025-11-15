@@ -307,19 +307,6 @@ func (p *MarkdownPrinter) getStrategyCategory(name string) string {
 	return "Прочие стратегии"
 }
 
-// getStatusEmoji — возвращает статус с эмодзи
-// func (p *MarkdownPrinter) getStatusEmoji(profit float64) string {
-// 	if profit > 0.05 {
-// 		return "🟢 Отлично"
-// 	} else if profit > 0 {
-// 		return "🟡 Хорошо"
-// 	} else if profit > -0.05 {
-// 		return "🟠 Слабо"
-// 	} else {
-// 		return "🔴 Убыток"
-// 	}
-// }
-
 // getStatusText — возвращает статус без эмодзи для таблиц
 func (p *MarkdownPrinter) getStatusText(profit float64) string {
 	if profit > 0.05 {
