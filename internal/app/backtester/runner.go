@@ -35,11 +35,11 @@ func (r *BaseStrategyRunner) loadConfigsFromFile() {
 		return
 	}
 
-	r.slipping = 0.01
+	r.slipping = 0.02
 	// Извлекаем глобальный параметр проскальзывания
 	if slippingVal, exists := allConfigs["slipping"]; exists {
 		if err := json.Unmarshal(slippingVal, &r.slipping); err != nil {
-			r.slipping = 0.01 // значение по умолчанию
+			r.slipping = 0.02 // значение по умолчанию
 			fmt.Printf("⚠️  Неверный тип параметра проскальзывания, используем значение по умолчанию: %.4f\n", r.slipping)
 
 		}
@@ -59,6 +59,8 @@ func (r *BaseStrategyRunner) loadConfigsFromFile() {
 // runSingleStrategy — общая логика запуска одной стратегии
 func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []internal.Candle) (*BenchmarkResult, internal.StrategyConfig, error) {
 	strategy := internal.GetStrategy(strategyName)
+
+	strategy.SetSlippage(r.slipping)
 	if strategy == nil {
 		return nil, nil, fmt.Errorf("стратегия %s не найдена", strategyName)
 	}
@@ -93,7 +95,7 @@ func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []in
 	}
 
 	signals := strategy.GenerateSignalsWithConfig(candles, config)
-	result := internal.Backtest(candles, signals, r.slipping) // Используем глобальный параметр проскальзывания
+	result := internal.Backtest(candles, signals, strategy.GetSlippage()) // Используем глобальный параметр проскальзывания
 
 	executionTime := time.Since(strategyStartTime)
 

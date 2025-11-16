@@ -63,12 +63,6 @@
     "num_simulations": 300,
     "threshold": 0.025
   },
-  "jesse_livermore_trend": {
-    "trend_period": 20,
-    "entry_threshold": 0.5,
-    "exit_threshold": 0.5,
-    "confirm_trend_reversal": false
-  },
   "linear_alternating_spline": {
     "min_segment_length": 30,
     "min_slope": 0.0005

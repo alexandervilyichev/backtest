@@ -1,5 +1,5 @@
 {
-  "slipping": 0.01,
+  "slipping": 0.02,
   "arima_strategy": {
     "ar_order": 3,
     "diff_order": 1,
@@ -96,8 +96,8 @@
     "volatility_filter": 0.0045
   },
   "quadratic_variable_trend_spline": {
-    "min_segment_length": 5,
-    "max_segment_length": 50
+    "min_segment_length": 10,
+    "max_segment_length": 80
   },
   "rsi_oscillator": {
     "period": 14,

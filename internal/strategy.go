@@ -23,15 +23,26 @@ type Strategy interface {
 
 type Config interface {
 	DefaultConfig() StrategyConfig
+	GetSlippage() float64
+	SetSlippage(slippage float64)
 	LoadConfigFromMap(raw json.RawMessage) StrategyConfig
 }
 
 type BaseConfig struct {
-	Config StrategyConfig
+	Config   StrategyConfig
+	slippage float64
 }
 
 func (s *BaseConfig) DefaultConfig() StrategyConfig {
 	return s.Config
+}
+
+func (s *BaseConfig) GetSlippage() float64 {
+	return s.slippage
+}
+
+func (s *BaseConfig) SetSlippage(slippage float64) {
+	s.slippage = slippage
 }
 
 func (s *BaseConfig) LoadConfigFromMap(raw json.RawMessage) StrategyConfig {
