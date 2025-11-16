@@ -438,15 +438,15 @@ func calculateVariance(data []float64, mean float64) float64 {
 }
 
 func init() {
-	internal.RegisterStrategy("garch_volatility_strategy", &GARCHVolatilityStrategy{
-		BaseConfig: internal.BaseConfig{
-			Config: &GARCHVolatilityConfig{
-				WindowSize:          100,
-				ForecastHorizon:     5,
-				VolatilityThreshold: 0.005, // уменьшили с 0.02 до 0.005
-				TrendThreshold:      0.002, // уменьшили с 0.01 до 0.002
-				UseVolatilityRegime: true,
-			},
-		},
-	})
+	// internal.RegisterStrategy("garch_volatility_strategy", &GARCHVolatilityStrategy{
+	// 	BaseConfig: internal.BaseConfig{
+	// 		Config: &GARCHVolatilityConfig{
+	// 			WindowSize:          100,
+	// 			ForecastHorizon:     5,
+	// 			VolatilityThreshold: 0.005, // уменьшили с 0.02 до 0.005
+	// 			TrendThreshold:      0.002, // уменьшили с 0.01 до 0.002
+	// 			UseVolatilityRegime: true,
+	// 		},
+	// 	},
+	// })
 }

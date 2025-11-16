@@ -575,13 +575,13 @@ func (s *ARIMAStrategy) OptimizeWithConfig(candles []internal.Candle) internal.S
 }
 
 func init() {
-	internal.RegisterStrategy("arima_strategy", &ARIMAStrategy{
-		BaseConfig: internal.BaseConfig{
-			Config: &ARIMAConfig{
-				ArOrder:   3,
-				DiffOrder: 1,
-				MaOrder:   0,
-			},
-		},
-	})
+	// internal.RegisterStrategy("arima_strategy", &ARIMAStrategy{
+	// 	BaseConfig: internal.BaseConfig{
+	// 		Config: &ARIMAConfig{
+	// 			ArOrder:   3,
+	// 			DiffOrder: 1,
+	// 			MaOrder:   0,
+	// 		},
+	// 	},
+	// })
 }
