@@ -51,4 +51,5 @@ type Config struct {
 	CpuProfile  string
 	MemProfile  string
 	ConfigFile  string
+	ProfPort    int
 }

@@ -351,14 +351,14 @@ func variance(data []float64, mean float64) float64 {
 }
 
 func init() {
-	internal.RegisterStrategy("heston_strategy", &HestonStrategy{
-		BaseConfig: internal.BaseConfig{
-			Config: &HestonConfig{
-				WindowSize:      80,    // Уменьшаем окно для более быстрой адаптации
-				PredictionSteps: 3,     // Уменьшаем шаги прогноза для более частых сигналов
-				NumSimulations:  400,   // Немного уменьшаем для скорости
-				Threshold:       0.015, // Снижаем порог с 2% до 1.5%
-			},
-		},
-	})
+	// internal.RegisterStrategy("heston_strategy", &HestonStrategy{
+	// 	BaseConfig: internal.BaseConfig{
+	// 		Config: &HestonConfig{
+	// 			WindowSize:      80,    // Уменьшаем окно для более быстрой адаптации
+	// 			PredictionSteps: 3,     // Уменьшаем шаги прогноза для более частых сигналов
+	// 			NumSimulations:  400,   // Немного уменьшаем для скорости
+	// 			Threshold:       0.015, // Снижаем порог с 2% до 1.5%
+	// 		},
+	// 	},
+	// })
 }

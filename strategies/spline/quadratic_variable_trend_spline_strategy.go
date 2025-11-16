@@ -39,12 +39,6 @@ type QuadraticSplineSegment struct {
 	InflectionX float64 // x-coordinate of inflection point (where derivative = 0)
 }
 
-type GridSearchResult struct {
-	MinLen int     `json:"min_len"`
-	MaxLen int     `json:"max_len"`
-	Profit float64 `json:"profit"`
-}
-
 type QuadraticVariableTrendSplineStrategy struct{ internal.BaseConfig }
 
 func (s *QuadraticVariableTrendSplineStrategy) Name() string {
@@ -299,7 +293,7 @@ func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []inte
 	bestConfig := s.DefaultConfig().(*QuadraticVariableTrendSplineConfig)
 	bestProfit := -1.0
 
-	var results []GridSearchResult
+	var results []internal.GridSearchResult
 
 	for minLen := 5; minLen < 80; minLen += 5 {
 		for maxLen := 40; maxLen < 420; maxLen += 5 {
@@ -320,9 +314,9 @@ func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []inte
 			result := internal.Backtest(candles, signals, s.GetSlippage())
 
 			// Collect results for mesh format
-			results = append(results, GridSearchResult{
-				MinLen: minLen,
-				MaxLen: maxLen,
+			results = append(results, internal.GridSearchResult{
+				X:      minLen,
+				Y:      maxLen,
 				Profit: result.TotalProfit,
 			})
 

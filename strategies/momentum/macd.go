@@ -320,21 +320,21 @@ func (s *MACDStrategy) OptimizeWithConfig(candles []internal.Candle) internal.St
 }
 
 func init() {
-	internal.RegisterStrategy("macd", &MACDStrategy{
-		BaseConfig: internal.BaseConfig{
-			Config: &MACDConfig{
-				FastPeriod:              12,
-				SlowPeriod:              26,
-				SignalPeriod:            9,
-				TrendPeriod:             50, // Уменьшил с 200 до 50 для менее строгого фильтра
-				VolatilityPeriod:        20,
-				MinSignalStrength:       0.05, // Уменьшил с 0.1 до 0.05 для менее строгого фильтра
-				StopLossPercent:         0.05, // 5%
-				TakeProfitPercent:       0.15, // 15%
-				UseTrendFilter:          true,
-				UseVolatilityFilter:     false, // Отключаем по умолчанию для большего количества сигналов
-				UseSignalStrengthFilter: false, // Отключаем по умолчанию для большего количества сигналов
-			},
-		},
-	})
+	// internal.RegisterStrategy("macd", &MACDStrategy{
+	// 	BaseConfig: internal.BaseConfig{
+	// 		Config: &MACDConfig{
+	// 			FastPeriod:              12,
+	// 			SlowPeriod:              26,
+	// 			SignalPeriod:            9,
+	// 			TrendPeriod:             50, // Уменьшил с 200 до 50 для менее строгого фильтра
+	// 			VolatilityPeriod:        20,
+	// 			MinSignalStrength:       0.05, // Уменьшил с 0.1 до 0.05 для менее строгого фильтра
+	// 			StopLossPercent:         0.05, // 5%
+	// 			TakeProfitPercent:       0.15, // 15%
+	// 			UseTrendFilter:          true,
+	// 			UseVolatilityFilter:     false, // Отключаем по умолчанию для большего количества сигналов
+	// 			UseSignalStrengthFilter: false, // Отключаем по умолчанию для большего количества сигналов
+	// 		},
+	// 	},
+	// })
 }

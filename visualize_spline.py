@@ -10,8 +10,8 @@ def main():
         results = json.load(f)
     
     # Extract parameters and profits
-    min_lengths = np.array([r['min_len'] for r in results])
-    max_lengths = np.array([r['max_len'] for r in results])
+    min_lengths = np.array([r['X'] for r in results])
+    max_lengths = np.array([r['Y'] for r in results])
     profits = np.array([r['profit'] for r in results])
     
     # Create 3D surface plot
@@ -22,17 +22,17 @@ def main():
     triang = tri.Triangulation(min_lengths, max_lengths)
     surf = ax.plot_trisurf(triang, profits, cmap='viridis', edgecolor='none')
     
-    ax.set_xlabel('Min Segment Length')
-    ax.set_ylabel('Max Segment Length')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
     ax.set_zlabel('Profit')
-    ax.set_title('Quadratic Variable Trend Spline Grid Search Results')
+    ax.set_title(' Grid Search Results')
     fig.colorbar(surf, ax=ax, shrink=0.5, aspect=5)
     
     # Save plot
-    plt.savefig('spline_grid_search.png')
+    plt.savefig('grid_search.png')
     plt.close()
     
-    print("3D visualization saved as 'spline_grid_search.png'")
+    print("3D visualization saved as 'grid_search.png'")
 
 if __name__ == '__main__':
     main()

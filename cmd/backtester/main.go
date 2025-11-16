@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime/pprof"
 	"sort"
@@ -82,6 +84,17 @@ func main() {
 	// Парсинг командной строки
 	config := parseFlags()
 
+	// Запуск realtime профилирования если указано
+	if config.ProfPort > 0 {
+		go func() {
+			addr := fmt.Sprintf(":%d", config.ProfPort)
+			log.Printf("🚀 HTTP профилирование доступно на http://localhost%s/debug/pprof/", addr)
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				log.Printf("❌ Ошибка запуска HTTP сервера профилирования: %v", err)
+			}
+		}()
+	}
+
 	// Запуск CPU профилирования если указано
 	if config.CpuProfile != "" {
 		f, err := os.Create(config.CpuProfile)
@@ -149,6 +162,7 @@ func parseFlags() backtester.Config {
 	cpuProfile := flag.String("cpu_profile", "", "Файл для CPU профилирования (пусто = отключено)")
 	memProfile := flag.String("mem_profile", "", "Файл для памяти профилирования (пусто = отключено)")
 	configFile := flag.String("config", "", "Путь к JSON-файлу с конфигурациями стратегий (пусто = оптимизация)")
+	profPort := flag.Int("prof_port", 0, "Порт для realtime профилирования (0 = отключено)")
 	flag.Parse()
 
 	return backtester.Config{
@@ -159,6 +173,7 @@ func parseFlags() backtester.Config {
 		CpuProfile:  *cpuProfile,
 		MemProfile:  *memProfile,
 		ConfigFile:  *configFile,
+		ProfPort:    *profPort,
 	}
 }
 

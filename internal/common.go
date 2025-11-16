@@ -14,6 +14,12 @@ import (
 
 var Cache sync.Map
 
+type GridSearchResult struct {
+	X      int     `json:"X"`
+	Y      int     `json:"Y"`
+	Profit float64 `json:"profit"`
+}
+
 func keyFor(typeAlgo string, typeInput string, period int) string {
 	var buf bytes.Buffer
 	algoLen := int32(len(typeAlgo))

@@ -3,27 +3,24 @@ package spline
 import (
 	"bt/internal"
 	"fmt"
-	"math"
 )
 
 type LinearAlternatingSplineConfig struct {
-	MinSegmentLength int     `json:"min_segment_length"`
-	MinSlope         float64 `json:"min_slope"`
+	MaxSegmentLength int `json:"max_segment_length"`
+	MinSegmentLength int `json:"min_segment_length"`
 }
 
 func (c *LinearAlternatingSplineConfig) Validate() error {
 	if c.MinSegmentLength < 2 {
 		c.MinSegmentLength = 2
 	}
-	if c.MinSlope < 0 {
-		c.MinSlope = 0.001
-	}
+
 	return nil
 }
 
 func (c *LinearAlternatingSplineConfig) DefaultConfigString() string {
-	return fmt.Sprintf("LinearAlternatingSpline(min_segment_length=%d, min_slope=%.4f)",
-		c.MinSegmentLength, c.MinSlope)
+	return fmt.Sprintf("LinearAlternatingSpline(min_segment_length=%d, max_segment_length=%d)",
+		c.MinSegmentLength, c.MaxSegmentLength)
 }
 
 type SplineSegment struct {
@@ -76,18 +73,18 @@ func (s *LinearAlternatingSplineStrategy) GenerateSignalsWithConfig(candles []in
 		changePoint := segments[i].StartIdx
 		if changePoint < len(signals) {
 			// Check if both segments have sufficient slope magnitude
-			prevSlopeMagnitude := math.Abs(segments[i-1].Slope)
-			currSlopeMagnitude := math.Abs(segments[i].Slope)
+			// prevSlopeMagnitude := math.Abs(segments[i-1].Slope)
+			// currSlopeMagnitude := math.Abs(segments[i].Slope)
 
-			if prevSlopeMagnitude >= splineConfig.MinSlope && currSlopeMagnitude >= splineConfig.MinSlope {
-				// If previous segment was ascending and current is descending -> SELL signal
-				if segments[i-1].IsAscending && !segments[i].IsAscending {
-					signals[changePoint] = internal.SELL
-				} else if !segments[i-1].IsAscending && segments[i].IsAscending {
-					// If previous segment was descending and current is ascending -> BUY signal
-					signals[changePoint] = internal.BUY
-				}
+			// if prevSlopeMagnitude >= splineConfig.MinSlope && currSlopeMagnitude >= splineConfig.MinSlope {
+			// If previous segment was ascending and current is descending -> SELL signal
+			if segments[i-1].IsAscending && !segments[i].IsAscending {
+				signals[changePoint] = internal.SELL
+			} else if !segments[i-1].IsAscending && segments[i].IsAscending {
+				// If previous segment was descending and current is ascending -> BUY signal
+				signals[changePoint] = internal.BUY
 			}
+			// }
 		}
 	}
 
@@ -121,7 +118,7 @@ func (s *LinearAlternatingSplineStrategy) fitAlternatingSplines(prices []float64
 
 func (s *LinearAlternatingSplineStrategy) fitSegment(prices []float64, startIdx, maxEndIdx int, isAscending bool, config *LinearAlternatingSplineConfig) SplineSegment {
 	minLength := config.MinSegmentLength
-	maxLength := int(math.Min(float64(maxEndIdx-startIdx), float64(len(prices)-startIdx)))
+	maxLength := config.MaxSegmentLength
 
 	if maxLength < minLength {
 		return SplineSegment{StartIdx: startIdx, EndIdx: startIdx}
@@ -212,14 +209,12 @@ func (s *LinearAlternatingSplineStrategy) OptimizeWithConfig(candles []internal.
 	bestProfit := -1.0
 
 	// Grid search over parameter combinations
-	minLengths := []int{5, 10, 15, 20, 30}
-	minSlopes := []float64{0.0005, 0.001, 0.002, 0.005, 0.01}
 
-	for _, minLen := range minLengths {
-		for _, minSlope := range minSlopes {
+	for maxLen := 300; maxLen < 500; maxLen += 5 {
+		for minLen := 5; minLen < 130; minLen += 5 {
 			config := &LinearAlternatingSplineConfig{
+				MaxSegmentLength: maxLen,
 				MinSegmentLength: minLen,
-				MinSlope:         minSlope,
 			}
 
 			if config.Validate() != nil {
@@ -229,6 +224,9 @@ func (s *LinearAlternatingSplineStrategy) OptimizeWithConfig(candles []internal.
 			signals := s.GenerateSignalsWithConfig(candles, config)
 			result := internal.Backtest(candles, signals, s.GetSlippage())
 
+			fmt.Printf("Параметры Linear Alternating Spline: max_length=%d, min_length=%d, профит=%.4f\n",
+				config.MaxSegmentLength, config.MinSegmentLength, result.TotalProfit)
+
 			// Select configuration with highest profit
 			if result.TotalProfit >= bestProfit {
 				bestProfit = result.TotalProfit
@@ -237,8 +235,8 @@ func (s *LinearAlternatingSplineStrategy) OptimizeWithConfig(candles []internal.
 		}
 	}
 
-	fmt.Printf("Лучшие параметры Linear Alternating Spline: min_length=%d, min_slope=%.4f, профит=%.4f\n",
-		bestConfig.MinSegmentLength, bestConfig.MinSlope, bestProfit)
+	fmt.Printf("Лучшие параметры Linear Alternating Spline: max_length=%d, min_length=%d, профит=%.4f\n",
+		bestConfig.MaxSegmentLength, bestConfig.MinSegmentLength, bestProfit)
 
 	return bestConfig
 }
@@ -247,8 +245,8 @@ func init() {
 	internal.RegisterStrategy("linear_alternating_spline", &LinearAlternatingSplineStrategy{
 		BaseConfig: internal.BaseConfig{
 			Config: &LinearAlternatingSplineConfig{
-				MinSegmentLength: 5,
-				MinSlope:         0.001,
+				MaxSegmentLength: 50,
+				MinSegmentLength: 10,
 			},
 		},
 	})

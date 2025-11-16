@@ -40,8 +40,10 @@ package volatility
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 )
 
 type EnvelopesConfig struct {
@@ -141,9 +143,10 @@ func (s *EnvelopesStrategy) OptimizeWithConfig(candles []internal.Candle) intern
 	bestConfig := s.DefaultConfig().(*EnvelopesConfig)
 	bestProfit := -1.0
 
+	var results []internal.GridSearchResult
 	// Grid search по параметрам
-	for period := 10; period <= 50; period += 5 {
-		for percentage := 0.01; percentage <= 0.10; percentage += 0.01 {
+	for period := 5; period <= 90; period += 5 {
+		for percentage := 0.01; percentage <= 0.04; percentage += 0.0005 {
 			config := &EnvelopesConfig{
 				Period:     period,
 				Percentage: percentage,
@@ -154,11 +157,31 @@ func (s *EnvelopesStrategy) OptimizeWithConfig(candles []internal.Candle) intern
 
 			signals := s.GenerateSignalsWithConfig(candles, config)
 			result := internal.Backtest(candles, signals, s.GetSlippage())
+
+			// Collect results for mesh format
+			results = append(results, internal.GridSearchResult{
+				X:      period,
+				Y:      int(10000 * percentage),
+				Profit: result.TotalProfit,
+			})
+
 			if result.TotalProfit >= bestProfit {
 				bestProfit = result.TotalProfit
 				bestConfig = config
 			}
 		}
+	}
+
+	// Save results in mesh format
+	data, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marshaling results: %v\n", err)
+		return bestConfig
+	}
+
+	err = os.WriteFile("grid_search_results.json", data, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
 	}
 
 	fmt.Printf("Лучшие параметры Envelopes: period=%d, percentage=%.3f, профит=%.4f\n",
