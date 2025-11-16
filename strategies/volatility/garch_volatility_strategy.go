@@ -393,7 +393,7 @@ func (s *GARCHVolatilityStrategy) OptimizeWithConfig(candles []internal.Candle) 
 						}
 
 						signals := s.GenerateSignalsWithConfig(candles, config)
-						result := internal.Backtest(candles, signals, 0.01)
+						result := internal.Backtest(candles, signals, s.GetSlippage())
 
 						if result.TotalProfit >= bestProfit {
 							bestProfit = result.TotalProfit

@@ -1,3 +1,3 @@
-module backtest
+module bt
 
 go 1.25.3

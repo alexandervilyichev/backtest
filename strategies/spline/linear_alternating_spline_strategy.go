@@ -227,7 +227,7 @@ func (s *LinearAlternatingSplineStrategy) OptimizeWithConfig(candles []internal.
 			}
 
 			signals := s.GenerateSignalsWithConfig(candles, config)
-			result := internal.Backtest(candles, signals, 0.01)
+			result := internal.Backtest(candles, signals, s.GetSlippage())
 
 			// Select configuration with highest profit
 			if result.TotalProfit >= bestProfit {

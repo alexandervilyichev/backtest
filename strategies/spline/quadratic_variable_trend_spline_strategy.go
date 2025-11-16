@@ -2,8 +2,10 @@ package spline
 
 import (
 	"bt/internal"
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 )
 
 type QuadraticVariableTrendSplineConfig struct {
@@ -35,6 +37,12 @@ type QuadraticSplineSegment struct {
 	C           float64 // constant term
 	IsAscending bool    // overall trend direction
 	InflectionX float64 // x-coordinate of inflection point (where derivative = 0)
+}
+
+type GridSearchResult struct {
+	MinLen int     `json:"min_len"`
+	MaxLen int     `json:"max_len"`
+	Profit float64 `json:"profit"`
 }
 
 type QuadraticVariableTrendSplineStrategy struct{ internal.BaseConfig }
@@ -291,11 +299,10 @@ func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []inte
 	bestConfig := s.DefaultConfig().(*QuadraticVariableTrendSplineConfig)
 	bestProfit := -1.0
 
-	// tmos 8 97
-	// tbru 71 414
+	var results []GridSearchResult
 
-	for minLen := 10; minLen < 80; minLen += 10 {
-		for maxLen := 50; maxLen < 420; maxLen += 10 {
+	for minLen := 5; minLen < 80; minLen += 5 {
+		for maxLen := 40; maxLen < 420; maxLen += 5 {
 			if maxLen < minLen {
 				continue
 			}
@@ -310,15 +317,33 @@ func (s *QuadraticVariableTrendSplineStrategy) OptimizeWithConfig(candles []inte
 			}
 
 			signals := s.GenerateSignalsWithConfig(candles, config)
-			result := internal.Backtest(candles, signals, 0.01)
+			result := internal.Backtest(candles, signals, s.GetSlippage())
+
+			// Collect results for mesh format
+			results = append(results, GridSearchResult{
+				MinLen: minLen,
+				MaxLen: maxLen,
+				Profit: result.TotalProfit,
+			})
 
 			// Select configuration with highest profit
 			if result.TotalProfit >= bestProfit {
 				bestProfit = result.TotalProfit
 				bestConfig = config
 			}
-
 		}
+	}
+
+	// Save results in mesh format
+	data, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marshaling results: %v\n", err)
+		return bestConfig
+	}
+
+	err = os.WriteFile("grid_search_results.json", data, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
 	}
 
 	fmt.Printf("Лучшие параметры Quadratic Variable Trend Spline: min_length=%d, max_length=%d, профит=%.4f\n",

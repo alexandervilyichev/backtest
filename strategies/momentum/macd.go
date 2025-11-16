@@ -295,7 +295,7 @@ func (s *MACDStrategy) OptimizeWithConfig(candles []internal.Candle) internal.St
 							}
 
 							signals := s.GenerateSignalsWithConfig(candles, config)
-							result := internal.Backtest(candles, signals, 0.005) // Уменьшенное проскальзывание
+							result := internal.Backtest(candles, signals, s.GetSlippage()) // Уменьшенное проскальзывание
 
 							// Оцениваем только по прибыли
 							if result.TotalProfit >= bestProfit {
