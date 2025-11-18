@@ -54,6 +54,8 @@ import (
 	"bt/internal"
 	"errors"
 	"fmt"
+
+	"github.com/samber/lo"
 )
 
 type QStickConfig struct {
@@ -89,7 +91,10 @@ func (c *QStickConfig) DefaultConfigString() string {
 		c.Period, c.BuyThreshold, c.SellThreshold, c.StopLossPercent, c.TakeProfitPercent, c.VolatilityFilter)
 }
 
-type QstickOscillatorStrategy struct{ internal.BaseConfig }
+type QstickOscillatorStrategy struct {
+	internal.BaseConfig
+	internal.BaseStrategy
+}
 
 func (s *QstickOscillatorStrategy) Name() string {
 	return "qstick_oscillator"
@@ -268,51 +273,29 @@ func (s *QstickOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.
 }
 
 func (s *QstickOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := s.DefaultConfig().(*QStickConfig)
-	bestProfit := -1.0
 
-	// Расширенный grid search с новыми параметрами
-	for period := 12; period <= 19; period += 1 {
-		for buyThreshold := -2.0; buyThreshold <= -1.0; buyThreshold += 0.2 {
-			for sellThreshold := 0.2; sellThreshold <= 1.0; sellThreshold += 0.2 {
-				for stopLoss := 1.0; stopLoss <= 3.0; stopLoss += 1.0 {
-					for takeProfit := 4.0; takeProfit <= 9.0; takeProfit += 1.0 {
-						for volatilityFilter := 0.003; volatilityFilter <= 0.005; volatilityFilter += 0.0005 {
-							config := &QStickConfig{
-								Period:            period,
-								BuyThreshold:      buyThreshold,
-								SellThreshold:     sellThreshold,
-								StopLossPercent:   stopLoss,
-								TakeProfitPercent: takeProfit,
-								VolatilityFilter:  volatilityFilter,
-							}
-							if config.Validate() != nil {
-								continue
-							}
-
-							signals := s.GenerateSignalsWithConfig(candles, config)
-							result := internal.Backtest(candles, signals, s.GetSlippage()) // проскальзывание
-
-							// Учитываем не только прибыль, но и количество сделок
-							// Стратегия должна быть прибыльной И эффективной (не слишком много сделок)
-							efficiency := result.TotalProfit
-							if result.TradeCount > 1000 {
-								efficiency *= 0.8 // Штраф за слишком частую торговлю
-							}
-							if result.TradeCount < 10 {
-								efficiency *= 0.9 // Штраф за слишком редкую торговлю
-							}
-
-							if efficiency > bestProfit {
-								bestProfit = efficiency
-								bestConfig = config
-							}
-						}
-					}
-				}
+	configs := lo.CrossJoinBy6(
+		lo.RangeWithSteps[int](12, 19, 1),
+		lo.RangeWithSteps[float64](-2, -1, 0.2),
+		lo.RangeWithSteps[float64](0.2, 1, 0.2),
+		lo.RangeWithSteps[float64](1, 3, 1),
+		lo.RangeWithSteps[float64](4, 9, 1),
+		lo.RangeWithSteps[float64](0.003, 0.005, 0.0003),
+		func(period int, buyThreshold float64, sellThreshold float64, stopLoss float64, takeProfit float64, volatilityFilter float64) internal.StrategyConfig {
+			return &QStickConfig{
+				Period:            period,
+				BuyThreshold:      buyThreshold,
+				SellThreshold:     sellThreshold,
+				StopLossPercent:   stopLoss,
+				TakeProfitPercent: takeProfit,
+				VolatilityFilter:  volatilityFilter,
 			}
-		}
-	}
+		})
+
+	max := s.ProcessConfigs(s, candles, configs)
+
+	bestConfig := max.A.(*QStickConfig)
+	bestProfit := max.B
 
 	fmt.Printf("Лучшие параметры Qstick:\n")
 	fmt.Printf("  Период: %d\n", bestConfig.Period)

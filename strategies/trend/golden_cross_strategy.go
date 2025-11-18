@@ -45,6 +45,8 @@ import (
 	"bt/internal"
 	"errors"
 	"fmt"
+
+	"github.com/samber/lo"
 )
 
 type GoldenCrossConfig struct {
@@ -70,7 +72,10 @@ func (c *GoldenCrossConfig) DefaultConfigString() string {
 		c.FastPeriod, c.SlowPeriod)
 }
 
-type GoldenCrossStrategy struct{ internal.BaseConfig }
+type GoldenCrossStrategy struct {
+	internal.BaseConfig
+	internal.BaseStrategy
+}
 
 func (s *GoldenCrossStrategy) Name() string {
 	return "golden_cross"
@@ -142,32 +147,21 @@ func (s *GoldenCrossStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 }
 
 func (s *GoldenCrossStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := s.DefaultConfig().(*GoldenCrossConfig)
-	bestProfit := -1.0
 
-	// Оптимизируем периоды EMA для лучших результатов
-
-	for fast := 2; fast < 240; fast += 10 {
-		for slow := 100; slow < 340; slow += 5 {
-
-			config := &GoldenCrossConfig{
+	configs := lo.CrossJoinBy2(
+		lo.RangeWithSteps[int](5, 240, 5),
+		lo.RangeWithSteps[int](100, 340, 15),
+		func(fast int, slow int) internal.StrategyConfig {
+			return &GoldenCrossConfig{
 				FastPeriod: fast,
 				SlowPeriod: slow,
 			}
-			if config.Validate() != nil {
-				continue
-			}
+		})
 
-			signals := s.GenerateSignalsWithConfig(candles, config)
-			result := internal.Backtest(candles, signals, s.GetSlippage()) // проскальзывание
+	max := s.ProcessConfigs(s, candles, configs)
 
-			if result.TotalProfit >= bestProfit {
-				bestProfit = result.TotalProfit
-				bestConfig = config
-			}
-		}
-
-	}
+	bestConfig := max.A.(*GoldenCrossConfig)
+	bestProfit := max.B
 
 	fmt.Printf("Лучшие параметры Golden Cross: fast=%d, slow=%d, профит=%.4f\n",
 		bestConfig.FastPeriod, bestConfig.SlowPeriod, bestProfit)

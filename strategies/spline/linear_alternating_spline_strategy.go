@@ -224,8 +224,8 @@ func (s *LinearAlternatingSplineStrategy) OptimizeWithConfig(candles []internal.
 			signals := s.GenerateSignalsWithConfig(candles, config)
 			result := internal.Backtest(candles, signals, s.GetSlippage())
 
-			fmt.Printf("Параметры Linear Alternating Spline: max_length=%d, min_length=%d, профит=%.4f\n",
-				config.MaxSegmentLength, config.MinSegmentLength, result.TotalProfit)
+			// fmt.Printf("Параметры Linear Alternating Spline: max_length=%d, min_length=%d, профит=%.4f\n",
+			// 	config.MaxSegmentLength, config.MinSegmentLength, result.TotalProfit)
 
 			// Select configuration with highest profit
 			if result.TotalProfit >= bestProfit {

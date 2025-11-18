@@ -45,6 +45,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+
+	"github.com/samber/lo"
 )
 
 type CCIConfig struct {
@@ -74,7 +76,10 @@ func (c *CCIConfig) DefaultConfigString() string {
 		c.Period, c.BuyLevel, c.SellLevel)
 }
 
-type CCIOscillatorStrategy struct{ internal.BaseConfig }
+type CCIOscillatorStrategy struct {
+	internal.BaseConfig
+	internal.BaseStrategy
+}
 
 func (s *CCIOscillatorStrategy) Name() string {
 	return "cci_oscillator"
@@ -181,33 +186,24 @@ func (s *CCIOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Can
 }
 
 func (s *CCIOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := s.DefaultConfig().(*CCIConfig)
-	bestProfit := -1.0
 
-	// Более широкий и детальный grid search
-	for period := 5; period <= 10; period += 1 {
-		for buy := -200.0; buy <= -150.0; buy += 5 {
-			for sell := 150.0; sell <= 220.0; sell += 5 {
-				config := &CCIConfig{
-					Period:    period,
-					BuyLevel:  buy,
-					SellLevel: sell,
-				}
-				if config.Validate() != nil {
-					continue
-				}
-
-				signals := s.GenerateSignalsWithConfig(candles, config)
-				result := internal.Backtest(candles, signals, s.GetSlippage()) // проскальзывание
-				if result.TotalProfit >= bestProfit {
-					bestProfit = result.TotalProfit
-					bestConfig = config
-				}
+	configs := lo.CrossJoinBy3(
+		lo.RangeWithSteps[int](5, 10, 1),
+		lo.RangeWithSteps[float64](-200, -150, 5),
+		lo.RangeWithSteps[float64](150, 220, 5),
+		func(period int, buy float64, sell float64) internal.StrategyConfig {
+			return &CCIConfig{
+				Period:    period,
+				BuyLevel:  buy,
+				SellLevel: sell,
 			}
-		}
-	}
+		})
 
-	fmt.Printf("Лучшие параметры CCI: период=%d, покупка=%.1f, продажа=%.1f, профит=%.4f\n",
+	max := s.ProcessConfigs(s, candles, configs)
+
+	bestConfig := max.A.(*CCIConfig)
+	bestProfit := max.B
+	fmt.Printf("Лучшие параметры CCI: period=%d, buy_level=%.4f, sell_level=%.4f, profit=%.4f\n",
 		bestConfig.Period, bestConfig.BuyLevel, bestConfig.SellLevel, bestProfit)
 
 	return bestConfig

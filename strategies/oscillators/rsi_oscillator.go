@@ -41,6 +41,8 @@ import (
 	"bt/internal"
 	"errors"
 	"fmt"
+
+	"github.com/samber/lo"
 )
 
 type RSIConfig struct {
@@ -64,7 +66,10 @@ func (c *RSIConfig) DefaultConfigString() string {
 		c.Period, c.BuyThreshold, c.SellThreshold)
 }
 
-type RSIOscillatorStrategy struct{ internal.BaseConfig }
+type RSIOscillatorStrategy struct {
+	internal.BaseConfig
+	internal.BaseStrategy
+}
 
 func (s *RSIOscillatorStrategy) Name() string {
 	return "rsi_oscillator"
@@ -110,31 +115,23 @@ func (s *RSIOscillatorStrategy) GenerateSignalsWithConfig(candles []internal.Can
 }
 
 func (s *RSIOscillatorStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := s.DefaultConfig().(*RSIConfig)
-	bestProfit := -1.0
 
-	// Простой grid search по порогам
-	for period := 10; period <= 20; period += 1 {
-		for buyThresh := 10.0; buyThresh <= 35.0; buyThresh += 1 {
-			for sellThresh := 65.0; sellThresh <= 80.0; sellThresh += 1 {
-				config := &RSIConfig{
-					Period:        period,
-					BuyThreshold:  buyThresh,
-					SellThreshold: sellThresh,
-				}
-				if config.Validate() != nil {
-					continue
-				}
-
-				signals := s.GenerateSignalsWithConfig(candles, config)
-				result := internal.Backtest(candles, signals, s.GetSlippage()) // проскальзывание
-				if result.TotalProfit >= bestProfit {
-					bestProfit = result.TotalProfit
-					bestConfig = config
-				}
+	configs := lo.CrossJoinBy3(
+		lo.RangeWithSteps[int](10, 20, 1),
+		lo.RangeWithSteps[float64](10, 35, 1),
+		lo.RangeWithSteps[float64](65, 86, 1),
+		func(period int, buyThresh float64, sellThresh float64) internal.StrategyConfig {
+			return &RSIConfig{
+				Period:        period,
+				BuyThreshold:  buyThresh,
+				SellThreshold: sellThresh,
 			}
-		}
-	}
+		})
+
+	max := s.ProcessConfigs(s, candles, configs)
+
+	bestConfig := max.A.(*RSIConfig)
+	bestProfit := max.B
 
 	fmt.Printf("Лучшие параметры RSI: период=%d, покупка=%.1f, продажа=%.1f, профит=%.4f\n",
 		bestConfig.Period, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)

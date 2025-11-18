@@ -43,6 +43,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+
+	"github.com/samber/lo"
 )
 
 type ElliottWaveConfig struct {
@@ -305,6 +307,7 @@ func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64
 
 type ElliottWaveStrategy struct {
 	internal.BaseConfig
+	internal.BaseStrategy
 }
 
 func (s *ElliottWaveStrategy) Name() string {
@@ -332,15 +335,15 @@ func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 		prices[i] = candle.Close.ToFloat64()
 	}
 
-	log.Printf("🔍 Анализ волн Эллиотта: мин.длина=%d, макс.длина=%d, фиб=%f, тренд=%f",
-		ewConfig.MinWaveLength, ewConfig.MaxWaveLength, ewConfig.FibonacciThreshold, ewConfig.TrendStrength)
+	// log.Printf("🔍 Анализ волн Эллиотта: мин.длина=%d, макс.длина=%d, фиб=%f, тренд=%f",
+	// 	ewConfig.MinWaveLength, ewConfig.MaxWaveLength, ewConfig.FibonacciThreshold, ewConfig.TrendStrength)
 
 	// Создаем и обучаем анализатор волн
 	analyzer := NewElliottWaveAnalyzer(ewConfig.MinWaveLength, ewConfig.MaxWaveLength, ewConfig.FibonacciThreshold, ewConfig.TrendStrength)
 	analyzer.findSignificantExtrema(prices)
-	wavePoints := analyzer.identifyWavePattern()
+	// wavePoints := analyzer.identifyWavePattern()
 
-	log.Printf("✅ Найдено %d волновых точек", len(wavePoints))
+	// log.Printf("✅ Найдено %d волновых точек", len(wavePoints))
 
 	// Генерируем сигналы
 	signals := make([]internal.SignalType, len(candles))
@@ -371,40 +374,30 @@ func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 		}
 	}
 
-	log.Printf("✅ Волновой анализ Эллиотта завершен")
+	// log.Printf("✅ Волновой анализ Эллиотта завершен")
 	return signals
 }
 
 func (s *ElliottWaveStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := s.DefaultConfig().(*ElliottWaveConfig)
-	bestProfit := -1.0
 
-	// Grid search по параметрам
-	for minLen := 3; minLen <= 10; minLen += 2 {
-		for maxLen := 30; maxLen <= 80; maxLen += 10 {
-			for fibThresh := 0.5; fibThresh <= 0.8; fibThresh += 0.1 {
-				for trendStr := 0.2; trendStr <= 0.5; trendStr += 0.1 {
-					config := &ElliottWaveConfig{
-						MinWaveLength:      minLen,
-						MaxWaveLength:      maxLen,
-						FibonacciThreshold: fibThresh,
-						TrendStrength:      trendStr,
-					}
-					if config.Validate() != nil {
-						continue
-					}
-
-					signals := s.GenerateSignalsWithConfig(candles, config)
-					result := internal.Backtest(candles, signals, s.GetSlippage())
-
-					if result.TotalProfit >= bestProfit {
-						bestProfit = result.TotalProfit
-						bestConfig = config
-					}
-				}
+	configs := lo.CrossJoinBy4(
+		lo.RangeWithSteps[int](3, 10, 1),
+		lo.RangeWithSteps[int](30, 80, 10),
+		lo.RangeWithSteps[float64](0.5, 0.8, 0.1),
+		lo.RangeWithSteps[float64](0.2, 0.5, 0.1),
+		func(minLen int, maxLen int, fibThresh float64, trendStr float64) internal.StrategyConfig {
+			return &ElliottWaveConfig{
+				MinWaveLength:      minLen,
+				MaxWaveLength:      maxLen,
+				FibonacciThreshold: fibThresh,
+				TrendStrength:      trendStr,
 			}
-		}
-	}
+		})
+
+	max := s.ProcessConfigs(s, candles, configs)
+
+	bestConfig := max.A.(*ElliottWaveConfig)
+	bestProfit := max.B
 
 	fmt.Printf("Лучшие параметры волн Эллиотта: min_len=%d, max_len=%d, fib_thresh=%.3f, trend_str=%.1f, профит=%.4f\n",
 		bestConfig.MinWaveLength, bestConfig.MaxWaveLength, bestConfig.FibonacciThreshold,

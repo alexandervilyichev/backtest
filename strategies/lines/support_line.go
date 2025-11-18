@@ -47,6 +47,8 @@ import (
 	"bt/internal"
 	"errors"
 	"fmt"
+
+	"github.com/samber/lo"
 )
 
 type SupportLineConfig struct {
@@ -65,6 +67,7 @@ func (c *SupportLineConfig) Validate() error {
 	if c.SellThreshold <= 0 || c.SellThreshold >= 1.0 {
 		return errors.New("sell threshold must be between 0 and 1.0")
 	}
+
 	if c.SellThreshold <= c.BuyThreshold {
 		return errors.New("sell threshold must be greater than buy threshold")
 	}
@@ -78,6 +81,7 @@ func (c *SupportLineConfig) DefaultConfigString() string {
 
 type SupportLineStrategy struct {
 	internal.BaseConfig
+	internal.BaseStrategy
 }
 
 func (s *SupportLineStrategy) Name() string {
@@ -139,32 +143,23 @@ func (s *SupportLineStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 }
 
 func (s *SupportLineStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
-	bestConfig := s.DefaultConfig().(*SupportLineConfig)
-	bestProfit := -1.0
 
-	// Grid search по параметрам
-	for lookback := 40; lookback <= 50; lookback += 1 {
-		for buyThresh := 0.001; buyThresh <= 0.02; buyThresh += 0.002 {
-			for sellThresh := buyThresh; sellThresh <= 0.03; sellThresh += 0.0002 {
-				config := &SupportLineConfig{
-					LookbackPeriod: lookback,
-					BuyThreshold:   buyThresh,
-					SellThreshold:  sellThresh,
-				}
-				if config.Validate() != nil {
-					continue
-				}
-
-				signals := s.GenerateSignalsWithConfig(candles, config)
-				result := internal.Backtest(candles, signals, s.GetSlippage()) // проскальзывание
-				if result.TotalProfit >= bestProfit {
-					bestProfit = result.TotalProfit
-					bestConfig = config
-				}
+	configs := lo.CrossJoinBy3(
+		lo.RangeWithSteps[int](40, 50, 1),
+		lo.RangeWithSteps[float64](0.001, 0.02, 0.002),
+		lo.RangeWithSteps[float64](0.001, 0.03, 0.0002),
+		func(lookback int, buyThresh float64, sellThresh float64) internal.StrategyConfig {
+			return &SupportLineConfig{
+				LookbackPeriod: lookback,
+				BuyThreshold:   buyThresh,
+				SellThreshold:  sellThresh,
 			}
-		}
-	}
+		})
 
+	max := s.ProcessConfigs(s, candles, configs)
+
+	bestConfig := max.A.(*SupportLineConfig)
+	bestProfit := max.B
 	fmt.Printf("Лучшие параметры Support Line: lookback=%d, buy_thresh=%.4f, sell_thresh=%.4f, профит=%.4f\n",
 		bestConfig.LookbackPeriod, bestConfig.BuyThreshold, bestConfig.SellThreshold, bestProfit)
 

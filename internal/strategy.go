@@ -4,6 +4,10 @@ package internal
 import (
 	"encoding/json"
 	"log"
+
+	"github.com/samber/lo"
+
+	lop "github.com/samber/lo/parallel"
 )
 
 // StrategyConfig defines the interface for strategy configuration
@@ -12,13 +16,20 @@ type StrategyConfig interface {
 	DefaultConfigString() string
 }
 
-// New SOLID architecture interfaces - will replace StrategyParams eventually
 type Strategy interface {
 	Config
 
 	Name() string
 	GenerateSignalsWithConfig(candles []Candle, config StrategyConfig) []SignalType
 	OptimizeWithConfig(candles []Candle) StrategyConfig
+}
+
+type InternalStrategy interface {
+	GenerateSignalsWithConfig(candles []Candle, config StrategyConfig) []SignalType
+}
+
+type BaseStrategy struct {
+	BaseConfig
 }
 
 type Config interface {
@@ -73,4 +84,25 @@ func GetStrategyNames() []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+func (b *BaseStrategy) ProcessConfigs(cc InternalStrategy, candles []Candle, configs []StrategyConfig) lo.Tuple2[StrategyConfig, float64] {
+	configs = lo.Filter(configs, func(x StrategyConfig, index int) bool {
+		return x.Validate() == nil
+	})
+
+	configsWithProfit := lop.Map(configs, func(c StrategyConfig, index int) lo.Tuple2[StrategyConfig, float64] {
+
+		signals := cc.GenerateSignalsWithConfig(candles, c)
+		result := Backtest(candles, signals, b.GetSlippage())
+		return lo.Tuple2[StrategyConfig, float64]{c, result.TotalProfit}
+	})
+
+	max := lo.MaxBy(configsWithProfit, func(
+		x lo.Tuple2[StrategyConfig, float64],
+		y lo.Tuple2[StrategyConfig, float64]) bool {
+
+		return x.B > y.B
+	})
+	return max
 }
