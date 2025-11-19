@@ -16,7 +16,7 @@ import (
 
 	"bt/internal"
 
-	backtester "bt/internal/app/bt"
+	"bt/internal/app/backtester"
 
 	_ "bt/strategies/v1/extrema"
 	_ "bt/strategies/v1/lines"
