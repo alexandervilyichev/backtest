@@ -106,6 +106,14 @@
     "take_profit_percent": 6,
     "volatility_filter": 0.0042
   },
+  "qstick_oscillator_v2": {
+    "period": 17,
+    "buy_threshold": -2,
+    "sell_threshold": 0.2,
+    "stop_loss_percent": 2,
+    "take_profit_percent": 6,
+    "volatility_filter": 0.0042
+  },
   "quadratic_variable_trend_spline": {
     "min_segment_length": 10,
     "max_segment_length": 115

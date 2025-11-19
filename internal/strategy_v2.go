@@ -4,6 +4,7 @@ package internal
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 
 	"github.com/samber/lo"
@@ -17,7 +18,7 @@ import (
 // StrategyConfig - конфигурация стратегии
 type StrategyConfigV2 interface {
 	Validate() error
-	String() string // вместо DefaultConfigString - более идиоматично для Go
+	String() string
 }
 
 // SignalGenerator - генератор торговых сигналов
@@ -114,7 +115,7 @@ func NewGridSearchOptimizer(
 
 func (gso *GridSearchOptimizer) Optimize(candles []Candle, generator SignalGenerator) StrategyConfigV2 {
 	configs := gso.configGenerator()
-	
+
 	// Фильтруем только валидные конфигурации
 	validConfigs := lo.Filter(configs, func(cfg StrategyConfigV2, _ int) bool {
 		return cfg.Validate() == nil
@@ -137,13 +138,9 @@ func (gso *GridSearchOptimizer) Optimize(candles []Candle, generator SignalGener
 		return a.B > b.B
 	})
 
-	log.Printf("Best config found: %s with profit: %.4f", best.A.String(), best.B)
+	fmt.Printf("Best config found: %s with profit: %.4f\n", best.A.String(), best.B)
 	return best.A
 }
-
-// ============================================================================
-// StrategyBase - базовая реализация через КОМПОЗИЦИЮ
-// ============================================================================
 
 type StrategyBase struct {
 	name             string
@@ -197,10 +194,6 @@ func (sb *StrategyBase) GetSlippage() float64 {
 func (sb *StrategyBase) SetSlippage(slippage float64) {
 	sb.slippageProvider.SetSlippage(slippage)
 }
-
-// ============================================================================
-// REGISTRY - регистрация и получение стратегий
-// ============================================================================
 
 var strategyRegistryV2 = make(map[string]TradingStrategy)
 

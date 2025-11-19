@@ -95,7 +95,7 @@ func (b *BaseStrategy) ProcessConfigs(cc InternalStrategy, candles []Candle, con
 
 		signals := cc.GenerateSignalsWithConfig(candles, c)
 		result := Backtest(candles, signals, b.GetSlippage())
-		return lo.Tuple2[StrategyConfig, float64]{c, result.TotalProfit}
+		return lo.Tuple2[StrategyConfig, float64]{A: c, B: result.TotalProfit}
 	})
 
 	max := lo.MaxBy(configsWithProfit, func(

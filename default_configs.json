@@ -51,6 +51,10 @@
     "fast_period": 12,
     "slow_period": 26
   },
+  "golden_cross_v2": {
+    "fast_period": 20,
+    "slow_period": 130
+  },
   "linear_alternating_spline": {
     "min_segment_length": 5,
     "min_slope": 0.001,
