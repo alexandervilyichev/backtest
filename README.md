@@ -277,6 +277,105 @@ const (
 
 ## 📈 Добавление новой стратегии
 
+### Архитектура V2 (рекомендуется)
+
+Новая архитектура использует композицию и интерфейсы для создания более гибких и тестируемых стратегий.
+
+**Преимущества V2:**
+- ✅ Переиспользование кода (универсальный `GridSearchOptimizer`)
+- ✅ Тестируемость (каждый компонент независим)
+- ✅ Гибкость (легко заменить оптимизатор)
+- ✅ Читаемость (явные зависимости)
+
+**Пример создания стратегии V2:**
+
+```go
+package trend
+
+import (
+	"bt/internal"
+	"errors"
+	"fmt"
+)
+
+// 1. Конфигурация
+type MyStrategyConfig struct {
+	Period int `json:"period"`
+}
+
+func (c *MyStrategyConfig) Validate() error {
+	if c.Period <= 0 {
+		return errors.New("period must be positive")
+	}
+	return nil
+}
+
+func (c *MyStrategyConfig) String() string {
+	return fmt.Sprintf("MyStrategy(period=%d)", c.Period)
+}
+
+// 2. Генератор сигналов
+type MyStrategySignalGenerator struct{}
+
+func (sg *MyStrategySignalGenerator) GenerateSignals(candles []internal.Candle, config internal.StrategyConfigV2) []internal.SignalType {
+	// Ваша логика генерации сигналов
+	signals := make([]internal.SignalType, len(candles))
+	// ...
+	return signals
+}
+
+// 3. Генератор конфигураций для оптимизации
+type MyStrategyConfigGenerator struct {
+	minPeriod, maxPeriod, step int
+}
+
+func (cg *MyStrategyConfigGenerator) Generate() []internal.StrategyConfigV2 {
+	configs := []internal.StrategyConfigV2{}
+	for period := cg.minPeriod; period <= cg.maxPeriod; period += cg.step {
+		configs = append(configs, &MyStrategyConfig{Period: period})
+	}
+	return configs
+}
+
+// 4. Фабричная функция (композиция компонентов)
+func NewMyStrategyV2(slippage float64) internal.TradingStrategy {
+	slippageProvider := internal.NewSlippageProvider(slippage)
+	signalGenerator := &MyStrategySignalGenerator{}
+	
+	configManager := internal.NewConfigManager(
+		&MyStrategyConfig{Period: 20}, // default config
+		func() internal.StrategyConfigV2 { return &MyStrategyConfig{} },
+	)
+	
+	configGenerator := &MyStrategyConfigGenerator{
+		minPeriod: 5, maxPeriod: 100, step: 5,
+	}
+	
+	optimizer := internal.NewGridSearchOptimizer(
+		slippageProvider,
+		configGenerator.Generate,
+	)
+	
+	return internal.NewStrategyBase(
+		"my_strategy_v2",
+		signalGenerator,
+		configManager,
+		optimizer,
+		slippageProvider,
+	)
+}
+
+// 5. Регистрация
+func init() {
+	strategy := NewMyStrategyV2(0.01)
+	internal.RegisterStrategyV2(strategy)
+}
+```
+
+**Подробнее**: См. `docs/V2_STRATEGY_GUIDE.md` и пример `strategies/trend/golden_cross_strategy_v2.go`
+
+### Архитектура V1 (legacy)
+
 1. Создайте файл в папке `strategies/`
 2. Реализуйте интерфейс `Strategy`:
    ```go
@@ -292,6 +391,8 @@ const (
        internal.RegisterStrategy("my_strategy", &MyStrategy{})
    }
    ```
+
+**Примечание**: Обе архитектуры работают одновременно. Система автоматически определяет тип стратегии.
 
 ## 🛠️ Разработка
 

@@ -56,10 +56,15 @@ func (r *BaseStrategyRunner) loadConfigsFromFile() {
 	fmt.Printf("✅ Загружены конфигурации для %d стратегий из %s\n", len(r.configs), r.config.ConfigFile)
 }
 
-// runSingleStrategy — общая логика запуска одной стратегии
+// runSingleStrategy — общая логика запуска одной стратегии (поддержка V1 и V2)
 func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []internal.Candle) (*BenchmarkResult, internal.StrategyConfig, error) {
-	strategy := internal.GetStrategy(strategyName)
+	// Сначала пробуем V2 стратегию
+	if strategyV2, ok := internal.GetStrategyV2(strategyName); ok {
+		return r.runStrategyV2(strategyName, strategyV2, candles)
+	}
 
+	// Если не найдена V2, используем V1
+	strategy := internal.GetStrategy(strategyName)
 	strategy.SetSlippage(r.slipping)
 	if strategy == nil {
 		return nil, nil, fmt.Errorf("стратегия %s не найдена", strategyName)
@@ -68,7 +73,7 @@ func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []in
 	strategyStartTime := time.Now()
 
 	if r.debug {
-		fmt.Printf("🐛 DEBUG: Запуск стратегии %s\n", strategyName)
+		fmt.Printf("🐛 DEBUG: Запуск стратегии V1 %s\n", strategyName)
 	}
 
 	var config internal.StrategyConfig
@@ -76,7 +81,6 @@ func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []in
 	// Если есть загруженная конфигурация из файла, используем её
 	if r.configs != nil {
 		if loadedConfig, exists := r.configs[strategyName]; exists {
-
 			config = strategy.LoadConfigFromMap(loadedConfig)
 			if r.debug {
 				fmt.Printf("🐛 DEBUG: Используем загруженную конфигурацию для %s\n", strategyName)
@@ -95,7 +99,7 @@ func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []in
 	}
 
 	signals := strategy.GenerateSignalsWithConfig(candles, config)
-	result := internal.Backtest(candles, signals, strategy.GetSlippage()) // Используем глобальный параметр проскальзывания
+	result := internal.Backtest(candles, signals, strategy.GetSlippage())
 
 	executionTime := time.Since(strategyStartTime)
 
@@ -106,6 +110,90 @@ func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []in
 		FinalPortfolio: result.FinalPortfolio,
 		ExecutionTime:  executionTime,
 	}, config, nil
+}
+
+// runStrategyV2 — запуск стратегии V2 (новая архитектура)
+func (r *BaseStrategyRunner) runStrategyV2(strategyName string, strategy internal.TradingStrategy, candles []internal.Candle) (*BenchmarkResult, internal.StrategyConfig, error) {
+	strategyStartTime := time.Now()
+
+	if r.debug {
+		fmt.Printf("🐛 DEBUG: Запуск стратегии V2 %s\n", strategyName)
+	}
+
+	var config internal.StrategyConfigV2
+
+	// Если есть загруженная конфигурация из файла, используем её
+	if r.configs != nil {
+		if loadedConfig, exists := r.configs[strategyName]; exists {
+			var err error
+			config, err = strategy.LoadFromJSON(loadedConfig)
+			if err != nil {
+				if r.debug {
+					fmt.Printf("🐛 DEBUG: Ошибка загрузки конфигурации для %s: %v, используем оптимизацию\n", strategyName, err)
+				}
+				config = strategy.Optimize(candles, strategy)
+			} else if r.debug {
+				fmt.Printf("🐛 DEBUG: Используем загруженную конфигурацию для %s\n", strategyName)
+			}
+		} else {
+			if r.debug {
+				fmt.Printf("🐛 DEBUG: Конфигурация для %s не найдена, используем оптимизацию\n", strategyName)
+			}
+			config = strategy.Optimize(candles, strategy)
+		}
+	} else {
+		if r.debug {
+			fmt.Printf("🐛 DEBUG: Конфигурация для %s не найдена в файле, используем оптимизацию\n", strategyName)
+		}
+		config = strategy.Optimize(candles, strategy)
+	}
+
+	signals := strategy.GenerateSignals(candles, config)
+	result := internal.Backtest(candles, signals, r.slipping)
+
+	executionTime := time.Since(strategyStartTime)
+
+	// Конвертируем V2 config в интерфейс для совместимости
+	var v1Config internal.StrategyConfig
+	if config != nil {
+		// Создаем обертку для V2 конфига
+		v1Config = &strategyConfigV2Wrapper{config: config}
+	}
+
+	return &BenchmarkResult{
+		Name:           strategy.Name(),
+		TotalProfit:    result.TotalProfit,
+		TradeCount:     result.TradeCount,
+		FinalPortfolio: result.FinalPortfolio,
+		ExecutionTime:  executionTime,
+	}, v1Config, nil
+}
+
+// strategyConfigV2Wrapper — обертка для совместимости V2 конфига с V1 интерфейсом
+type strategyConfigV2Wrapper struct {
+	config internal.StrategyConfigV2
+}
+
+func (w *strategyConfigV2Wrapper) DefaultConfigString() string {
+	if w.config != nil {
+		return w.config.String()
+	}
+	return ""
+}
+
+func (w *strategyConfigV2Wrapper) Validate() error {
+	if w.config != nil {
+		return w.config.Validate()
+	}
+	return nil
+}
+
+// MarshalJSON — сериализация V2 конфига в JSON
+func (w *strategyConfigV2Wrapper) MarshalJSON() ([]byte, error) {
+	if w.config != nil {
+		return json.Marshal(w.config)
+	}
+	return []byte("{}"), nil
 }
 
 // GetSlipping — возвращает значение параметра проскальзывания
@@ -183,7 +271,7 @@ func (r *ParallelStrategyRunner) RunStrategy(strategyName string, candles []inte
 	return result, err
 }
 
-// RunAllStrategies — запускает все доступные стратегии параллельно
+// RunAllStrategies — запускает все доступные стратегии параллельно (V1 + V2)
 func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]BenchmarkResult, error) {
 	fmt.Println("\n" + strings.Repeat("═", 80))
 	if r.config.ConfigFile != "" {
@@ -196,15 +284,23 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 	fmt.Printf("📊 Данных для анализа: %d свечей\n", len(candles))
 
 	startTime := time.Now()
-	strategyNames := internal.GetStrategyNames()
+	
+	// Получаем стратегии из обоих реестров (V1 + V2)
+	strategyNamesV1 := internal.GetStrategyNames()
+	strategyNamesV2 := internal.GetStrategyNamesV2()
+	
+	// Объединяем списки стратегий
+	strategyNames := append(strategyNamesV1, strategyNamesV2...)
 	totalStrategies := len(strategyNames)
 
 	if r.debug {
-		fmt.Printf("🐛 DEBUG: Найдено %d стратегий для тестирования: %s\n",
-			totalStrategies, strings.Join(strategyNames, ", "))
+		fmt.Printf("🐛 DEBUG: Найдено %d стратегий V1 и %d стратегий V2 для тестирования\n",
+			len(strategyNamesV1), len(strategyNamesV2))
+		fmt.Printf("🐛 DEBUG: V1: %s\n", strings.Join(strategyNamesV1, ", "))
+		fmt.Printf("🐛 DEBUG: V2: %s\n", strings.Join(strategyNamesV2, ", "))
 	}
 
-	fmt.Printf("🎯 Всего стратегий к запуску: %d\n", totalStrategies)
+	fmt.Printf("🎯 Всего стратегий к запуску: %d (V1: %d, V2: %d)\n", totalStrategies, len(strategyNamesV1), len(strategyNamesV2))
 	fmt.Println(strings.Repeat("─", 80))
 
 	// Канал для результатов
