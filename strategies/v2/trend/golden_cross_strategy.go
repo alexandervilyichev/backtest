@@ -36,7 +36,6 @@ func NewGoldenCrossSignalGenerator() *GoldenCrossSignalGenerator {
 	return &GoldenCrossSignalGenerator{}
 }
 
-// GenerateSignals - ТОЛЬКО генерация сигналов, никакой другой логики
 func (sg *GoldenCrossSignalGenerator) GenerateSignals(candles []internal.Candle, config internal.StrategyConfigV2) []internal.SignalType {
 	gcConfig, ok := config.(*GoldenCrossConfig)
 	if !ok {

@@ -196,10 +196,7 @@ func (s *QStickSignalGenerator) GenerateSignals(candles []internal.Candle, confi
 	return signals
 }
 
-type QstickConfigGenerator struct {
-	fastMin, fastMax, fastStep int
-	slowMin, slowMax, slowStep int
-}
+type QstickConfigGenerator struct{}
 
 func NewQstickConfigGenerator() *QstickConfigGenerator {
 	return &QstickConfigGenerator{}

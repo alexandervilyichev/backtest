@@ -32,6 +32,7 @@ import (
 	_ "bt/strategies/v1/volatility"
 	_ "bt/strategies/v1/volume"
 	_ "bt/strategies/v1/wave"
+	_ "bt/strategies/v2/lines"
 	_ "bt/strategies/v2/oscillators"
 	_ "bt/strategies/v2/trend"
 )
