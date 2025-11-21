@@ -14,7 +14,12 @@
     "buy_level": -160,
     "sell_level": 170
   },
-  "elliott_wave": {
+  "cci_oscillator_v2": {
+    "period": 6,
+    "buy_level": -160,
+    "sell_level": 170
+  },
+  "elliott_wave_v2": {
     "min_wave_length": 3,
     "max_wave_length": 30,
     "fibonacci_threshold": 0.5,
@@ -57,6 +62,12 @@
     "max_segment_length": 320,
     "min_segment_length": 25
   },
+  "linear_spline_v2": {
+    "min_segment_length": 5,
+    "max_segment_length": 30,
+    "min_r2_threshold": 0.8,
+    "min_slope_threshold": 0.0001
+  },
   "livermore_trend": {
     "ema_period": 50,
     "volume_multiplier": 1.5,
@@ -94,6 +105,25 @@
   },
   "optimal_extrema_strategy": {
     "Config": null
+  },
+  "predictive_linear_spline_v2": {
+    "min_segment_length": 125,
+    "max_segment_length": 445,
+    "prediction_horizon": 5,
+    "min_r2_threshold": 0.65,
+    "signal_advance": 5,
+    "min_slope_threshold": 0.00055,
+    "trend_exhaustion_factor": 0.6,
+    "min_price_change": 0.008
+  },
+  "predictive_spline_v2": {
+    "min_segment_length": 8,
+    "max_segment_length": 70,
+    "prediction_horizon": 10,
+    "min_r2_threshold": 0.65,
+    "signal_advance": 5,
+    "min_price_change": 0.005,
+    "min_trend_strength": 0.15
   },
   "pullback_sell": {
     "sensitivity": 3

@@ -22,6 +22,7 @@ func Backtest(candles []Candle, signals []SignalType, slippage float64) Backtest
 	holdings := 0.0
 	portfolioValues := []float64{cashCurrent}
 	tradeCount := 0
+	firstTradeExecuted := false // Флаг для отслеживания первой сделки
 
 	for i, signal := range signals {
 		price := candles[i].Close.ToFloat64()
@@ -33,15 +34,19 @@ func Backtest(candles []Candle, signals []SignalType, slippage float64) Backtest
 				holdings = cashCurrent / effectivePrice
 				cashCurrent = 0
 				//	fmt.Printf("📈 BUY at %.2f (effective %.2f, candle %d, %s)\n", price, effectivePrice, i, candles[i].Time)
-				tradeCount++
+				firstTradeExecuted = true
 			}
 		case SELL:
+			// КРИТИЧНО: Первая сделка должна быть BUY, игнорируем SELL до первого BUY
+			if !firstTradeExecuted {
+				continue
+			}
 			if holdings > 0 {
 				effectivePrice := price - slippage
 				cashCurrent = holdings * effectivePrice
 				holdings = 0
 				//	fmt.Printf("📉 SELL at %.2f (effective %.2f, candle %d, %s)\n", price, effectivePrice, i, candles[i].Time)
-				tradeCount++
+				tradeCount++ // Считаем полную сделку (пару BUY+SELL) только при SELL
 			}
 		}
 

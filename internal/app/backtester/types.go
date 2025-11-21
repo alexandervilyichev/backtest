@@ -12,6 +12,8 @@ type BenchmarkResult struct {
 	TradeCount     int
 	FinalPortfolio float64
 	ExecutionTime  time.Duration
+	// Предсказание следующего сигнала
+	NextSignal     *internal.FutureSignal
 }
 
 // CandleWithSignal — свеча с сигналом для построения графиков

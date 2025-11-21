@@ -103,12 +103,16 @@ func (r *BaseStrategyRunner) runSingleStrategy(strategyName string, candles []in
 
 	executionTime := time.Since(strategyStartTime)
 
+	// V1 стратегии не поддерживают предсказание
+	var nextSignal *internal.FutureSignal = nil
+
 	return &BenchmarkResult{
 		Name:           strategy.Name(),
 		TotalProfit:    result.TotalProfit,
 		TradeCount:     result.TradeCount,
 		FinalPortfolio: result.FinalPortfolio,
 		ExecutionTime:  executionTime,
+		NextSignal:     nextSignal,
 	}, config, nil
 }
 
@@ -153,6 +157,13 @@ func (r *BaseStrategyRunner) runStrategyV2(strategyName string, strategy interna
 
 	executionTime := time.Since(strategyStartTime)
 
+	// Пытаемся предсказать следующий сигнал
+	// Используем метод из StrategyBase, который проверяет поддержку предсказания
+	var nextSignal *internal.FutureSignal
+	if strategyBase, ok := strategy.(*internal.StrategyBase); ok {
+		nextSignal = strategyBase.PredictNextSignal(candles, config)
+	}
+
 	// Конвертируем V2 config в интерфейс для совместимости
 	var v1Config internal.StrategyConfig
 	if config != nil {
@@ -166,6 +177,7 @@ func (r *BaseStrategyRunner) runStrategyV2(strategyName string, strategy interna
 		TradeCount:     result.TradeCount,
 		FinalPortfolio: result.FinalPortfolio,
 		ExecutionTime:  executionTime,
+		NextSignal:     nextSignal,
 	}, v1Config, nil
 }
 

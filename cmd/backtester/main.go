@@ -31,10 +31,11 @@ import (
 	_ "bt/strategies/v1/trend"
 	_ "bt/strategies/v1/volatility"
 	_ "bt/strategies/v1/volume"
-	_ "bt/strategies/v1/wave"
+
 	_ "bt/strategies/v2/lines"
 	_ "bt/strategies/v2/oscillators"
 	_ "bt/strategies/v2/trend"
+	_ "bt/strategies/v2/wave"
 )
 
 func LoadCandlesFromFile(filename string) []internal.Candle {
@@ -231,6 +232,7 @@ func runStrategies(config backtester.Config, runner backtester.StrategyRunner, c
 			TradeCount:     bnhResult.TradeCount,
 			FinalPortfolio: bnhResult.FinalPortfolio,
 			ExecutionTime:  mainResult.ExecutionTime, // Используем то же время для простоты
+			NextSignal:     nil,                      // Buy & Hold не предсказывает сигналы
 		},
 	}
 

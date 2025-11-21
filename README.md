@@ -70,54 +70,51 @@ go build -o fetcher ./cmd/fetcher/
 
 ```bash
 # Запуск всех стратегий на данных из candles.json
-./backtester -file candles.json -strategy all
+go run ./cmd/backtester/ -file tmos_big.json -strategy all -cpu_profile cpu.prof -mem_profile mem.prof
 
-# Запуск на пользовательском файле с данными
-./backtester -file tmos_big.json -strategy all
-
-# Запуск с автоматическим сравнением с Buy & Hold стратегией
-./backtester -file data.json -strategy all
 ```
 
 #### Тестирование конкретной стратегии
 
 ```bash
 # Тестирование только CCI стратегии
-./backtester -file candles.json -strategy cci_oscillator
 
-# Тестирование RSI стратегии
-./backtester -file candles.json -strategy rsi_oscillator
+go run ./cmd/backtester/ -file tmos_big.json -strategy cci_oscillator -cpu_profile cpu.prof -mem_profile mem.prof
 
-# Тестирование MACD стратегии
-./backtester -file candles.json -strategy macd
 ```
 
 #### Расширенные возможности
 
 ```bash
 # Включить детальное логирование
-./backtester -file candles.json -strategy all -debug
+go run ./cmd/backtester/ -file tmos_big.json -strategy all -debug
 
 # Сохранить только топ-5 стратегий с сигналами
-./backtester -file candles.json -strategy all -save_signals=5
+go run ./cmd/backtester/ -file tmos_big.json -strategy all  -save_signals=5
 
 # Отключить сохранение файлов с сигналами
-./backtester -file candles.json -strategy all -save_signals=0
+go run ./cmd/backtester/ -file tmos_big.json -strategy all -save_signals=0
 
 # Комбинированные параметры
-./backtester -file tmos_big.json -strategy cci_oscillator -debug -save_signals=1
+go run ./cmd/backtester/ -file tmos_big.json -strategy all -debug -save_signals=1
 ```
 
 #### Доступные стратегии
 
+**V2 Стратегии (рекомендуется):**
+- `linear_spline_v2` - Линейные сплайны без прогнозирования (NEW!)
+- `predictive_linear_spline_v2` - Прогнозирующие линейные сплайны (NEW!)
+- `predictive_spline_v2` - Прогнозирующие квадратичные сплайны
+- `elliott_wave_v2` - Волны Эллиотта V2
+
+**V1 Стратегии:**
 - `cci_oscillator` - Commodity Channel Index
 - `rsi_oscillator` - Relative Strength Index
 - `macd` - Moving Average Convergence Divergence
 - `ma_crossover` - Пересечение скользящих средних
 - `stochastic_oscillator` - Стохастический осциллятор
 - `momentum_breakout` - Пробой импульса
-- `elliott_wave_strategy` - Стратегия волн Эллиотта
-- `arima_strategy` - ARIMA модель
+- `linear_alternating_spline` - Линейные чередующиеся сплайны V1
 - `buy_and_hold` - Покупка и удержание (бенчмарк)
 - И многие другие...
 
@@ -274,6 +271,41 @@ const (
 - `CANDLE_INTERVAL_30_MIN` - 30 минут
 - `CANDLE_INTERVAL_HOUR` - 1 час
 - `CANDLE_INTERVAL_DAY` - 1 день
+
+## 🆕 Новая стратегия: Predictive Spline V2
+
+**Предсказательная стратегия на основе квадратичных сплайнов** - преобразует ретроспективный анализ в предсказательную модель для реальной торговли.
+
+### Результаты на больших данных (15323 свечи)
+
+```bash
+./backtester -file tmos_big.json -strategy predictive_spline_v2
+```
+
+| Метрика | Значение |
+|---------|----------|
+| **Прибыль** | +33.39% |
+| **Сделок** | 5 |
+| **Buy & Hold** | -1.26% |
+| **Время** | 1.1s |
+
+### Ключевые особенности
+
+- ✅ **Предсказывает развороты заранее** (не постфактум)
+- ✅ **Фильтры качества** - отсеивает слабые тренды
+- ✅ **Оптимизирована для больших данных** (>5000 свечей)
+- ✅ **Консервативный подход** - мало сделок, но качественных
+- ✅ **Быстрая работа** - кэширование и оптимизация
+
+### Документация
+
+- [Быстрый старт](docs/PREDICTIVE_SPLINE_QUICKSTART.md)
+- [Полное руководство](docs/PREDICTIVE_SPLINE_STRATEGY.md)
+- [Сравнение V1 vs V2](docs/SPLINE_STRATEGY_COMPARISON.md)
+- [Улучшения для больших данных](docs/PREDICTIVE_SPLINE_IMPROVEMENTS.md)
+- [Итоговое резюме](PREDICTIVE_SPLINE_V2_SUMMARY.md)
+
+---
 
 ## 📈 Добавление новой стратегии
 
@@ -517,6 +549,17 @@ http://localhost:8000/visualizer.html?file=tmos_cci_oscillator_signals.json
    - Масштабируйте колесиком мыши
    - Наведите курсор для детальной информации
    - Используйте кнопки для управления видом
+
+## 📚 Документация стратегий
+
+Подробная документация по стратегиям доступна в папке `docs/`:
+
+- [Linear Spline Strategy V2](docs/LINEAR_SPLINE_STRATEGY.md) - Линейные сплайны без прогнозирования
+- [Linear Spline Quick Start](docs/LINEAR_SPLINE_QUICKSTART.md) - Быстрый старт с Linear Spline
+- [Predictive Linear Spline Strategy V2](docs/PREDICTIVE_LINEAR_SPLINE_STRATEGY.md) - Прогнозирующие линейные сплайны (NEW!)
+- [Predictive Spline Strategy](docs/PREDICTIVE_SPLINE_STRATEGY.md) - Прогнозирующие квадратичные сплайны
+- [Predictive Spline Quick Start](docs/PREDICTIVE_SPLINE_QUICKSTART.md) - Быстрый старт с Predictive Spline
+- [Spline Strategy Comparison](docs/SPLINE_STRATEGY_COMPARISON.md) - Сравнение стратегий на основе сплайнов
 
 ## 📄 Лицензия
 

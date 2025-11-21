@@ -70,9 +70,181 @@ func (c *ElliottWaveConfig) Validate() error {
 	return nil
 }
 
-func (c *ElliottWaveConfig) DefaultConfigString() string {
+func (c *ElliottWaveConfig) String() string {
 	return fmt.Sprintf("ElliottWave(min_len=%d, max_len=%d, fib_thresh=%.3f, trend_str=%.1f)",
 		c.MinWaveLength, c.MaxWaveLength, c.FibonacciThreshold, c.TrendStrength)
+}
+
+type ElliottWaveSignalGenerator struct{}
+
+func NewElliottWaveSignalGenerator() *ElliottWaveSignalGenerator {
+	return &ElliottWaveSignalGenerator{}
+}
+
+// PredictNextSignal предсказывает следующий сигнал на основе волнового анализа
+func (sg *ElliottWaveSignalGenerator) PredictNextSignal(candles []internal.Candle, config internal.StrategyConfigV2) *internal.FutureSignal {
+	ewConfig, ok := config.(*ElliottWaveConfig)
+	if !ok {
+		return nil
+	}
+
+	if err := ewConfig.Validate(); err != nil {
+		return nil
+	}
+
+	if len(candles) < 20 {
+		return nil
+	}
+
+	// Извлекаем ценовые данные
+	prices := make([]float64, len(candles))
+	for i, candle := range candles {
+		prices[i] = candle.Close.ToFloat64()
+	}
+
+	// Создаем анализатор волн
+	analyzer := NewElliottWaveAnalyzer(ewConfig.MinWaveLength, ewConfig.MaxWaveLength, ewConfig.FibonacciThreshold, ewConfig.TrendStrength)
+	analyzer.findSignificantExtrema(prices)
+	analyzer.identifyWavePattern()
+
+	if len(analyzer.wavePoints) < 2 {
+		return nil
+	}
+
+	// Находим последние две волновые точки
+	lastPoint := analyzer.wavePoints[len(analyzer.wavePoints)-1]
+	var prevPoint WavePoint
+	if len(analyzer.wavePoints) >= 2 {
+		prevPoint = analyzer.wavePoints[len(analyzer.wavePoints)-2]
+	}
+
+	currentIdx := len(candles) - 1
+	currentPrice := prices[currentIdx]
+
+	// Вычисляем среднюю длину волны
+	avgWaveLength := 0
+	if len(analyzer.wavePoints) >= 2 {
+		for i := 1; i < len(analyzer.wavePoints); i++ {
+			avgWaveLength += analyzer.wavePoints[i].Index - analyzer.wavePoints[i-1].Index
+		}
+		avgWaveLength /= (len(analyzer.wavePoints) - 1)
+	} else {
+		avgWaveLength = (ewConfig.MinWaveLength + ewConfig.MaxWaveLength) / 2
+	}
+
+	// Расстояние от последней волновой точки
+	distanceFromLastWave := currentIdx - lastPoint.Index
+
+	// Предсказываем следующую волновую точку
+	var predictedIndex int
+	var predictedPrice float64
+	var signalType internal.SignalType
+	var confidence float64
+
+	// Если мы близко к последней волновой точке, ждем формирования следующей
+	if distanceFromLastWave < avgWaveLength/2 {
+		// Предсказываем следующую волновую точку
+		predictedIndex = lastPoint.Index + avgWaveLength
+
+		// Экстраполируем цену на основе предыдущего движения
+		if len(analyzer.wavePoints) >= 2 {
+			priceMove := lastPoint.Price - prevPoint.Price
+			predictedPrice = lastPoint.Price + priceMove
+
+			// Определяем тип сигнала
+			if lastPoint.IsPeak {
+				// После пика ожидаем минимум, затем сигнал BUY
+				signalType = internal.BUY
+				predictedPrice = lastPoint.Price - internal.Abs(priceMove)*0.618 // коррекция Фибоначчи
+			} else {
+				// После минимума ожидаем максимум, затем сигнал SELL
+				signalType = internal.SELL
+				predictedPrice = lastPoint.Price + internal.Abs(priceMove)*1.618 // расширение Фибоначчи
+			}
+
+			// Уверенность зависит от регулярности волн
+			waveRegularity := 1.0 - internal.Abs(float64(distanceFromLastWave-avgWaveLength))/float64(avgWaveLength)
+			if waveRegularity < 0 {
+				waveRegularity = 0
+			}
+			confidence = 0.3 + waveRegularity*0.4 // базовая уверенность 30-70%
+		} else {
+			return nil
+		}
+	} else {
+		// Мы уже далеко от последней волновой точки, ожидаем разворот скоро
+		remainingDistance := avgWaveLength - distanceFromLastWave
+		if remainingDistance < 0 {
+			remainingDistance = avgWaveLength / 4 // если просрочили, ожидаем в ближайшее время
+		}
+
+		predictedIndex = currentIdx + remainingDistance
+
+		// Определяем направление на основе текущей позиции относительно последней волны
+		priceChangeFromWave := (currentPrice - lastPoint.Price) / lastPoint.Price
+
+		if lastPoint.IsPeak {
+			// После пика, если цена упала, ожидаем BUY на минимуме
+			if priceChangeFromWave < -0.01 {
+				signalType = internal.BUY
+				// Предсказываем минимум чуть ниже текущей цены
+				predictedPrice = currentPrice * 0.98
+				confidence = 0.5 + internal.Min(internal.Abs(priceChangeFromWave)*10, 0.3)
+			} else {
+				// Цена еще не упала достаточно, предсказываем падение
+				if len(analyzer.wavePoints) >= 2 {
+					priceMove := internal.Abs(lastPoint.Price - prevPoint.Price)
+					signalType = internal.SELL
+					predictedPrice = lastPoint.Price - priceMove*0.5
+					confidence = 0.4
+				} else {
+					return nil
+				}
+			}
+		} else {
+			// После минимума, ожидаем рост
+			// Если цена уже выросла значительно, ожидаем SELL на максимуме
+			if priceChangeFromWave > 0.01 {
+				signalType = internal.SELL
+				predictedPrice = currentPrice * 1.02
+				confidence = 0.5 + internal.Min(priceChangeFromWave*10, 0.3)
+			} else {
+				// Цена еще не выросла, предсказываем BUY
+				if len(analyzer.wavePoints) >= 2 {
+					priceMove := internal.Abs(lastPoint.Price - prevPoint.Price)
+					signalType = internal.BUY
+					predictedPrice = lastPoint.Price + priceMove*0.5
+					confidence = 0.4
+				} else {
+					return nil
+				}
+			}
+		}
+	}
+
+	// Ограничиваем уверенность
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+	if confidence < 0.1 {
+		confidence = 0.1
+	}
+
+	// Вычисляем дату сигнала
+	if len(candles) < 2 {
+		return nil
+	}
+
+	timeInterval := (candles[len(candles)-1].ToTime().Unix() - candles[0].ToTime().Unix()) / int64(len(candles)-1)
+	lastTimestamp := candles[len(candles)-1].ToTime().Unix()
+	futureTimestamp := lastTimestamp + timeInterval*int64(predictedIndex-currentIdx)
+
+	return &internal.FutureSignal{
+		SignalType: signalType,
+		Date:       futureTimestamp,
+		Price:      predictedPrice,
+		Confidence: confidence,
+	}
 }
 
 // WavePoint представляет точку волны Эллиотта
@@ -314,7 +486,7 @@ func (s *ElliottWaveStrategy) Name() string {
 	return "elliott_wave"
 }
 
-func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candle, config internal.StrategyConfig) []internal.SignalType {
+func (s *ElliottWaveSignalGenerator) GenerateSignals(candles []internal.Candle, config internal.StrategyConfigV2) []internal.SignalType {
 	ewConfig, ok := config.(*ElliottWaveConfig)
 	if !ok {
 		return make([]internal.SignalType, len(candles))
@@ -334,9 +506,6 @@ func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 	for i, candle := range candles {
 		prices[i] = candle.Close.ToFloat64()
 	}
-
-	// log.Printf("🔍 Анализ волн Эллиотта: мин.длина=%d, макс.длина=%d, фиб=%f, тренд=%f",
-	// 	ewConfig.MinWaveLength, ewConfig.MaxWaveLength, ewConfig.FibonacciThreshold, ewConfig.TrendStrength)
 
 	// Создаем и обучаем анализатор волн
 	analyzer := NewElliottWaveAnalyzer(ewConfig.MinWaveLength, ewConfig.MaxWaveLength, ewConfig.FibonacciThreshold, ewConfig.TrendStrength)
@@ -374,18 +543,23 @@ func (s *ElliottWaveStrategy) GenerateSignalsWithConfig(candles []internal.Candl
 		}
 	}
 
-	// log.Printf("✅ Волновой анализ Эллиотта завершен")
 	return signals
 }
 
-func (s *ElliottWaveStrategy) OptimizeWithConfig(candles []internal.Candle) internal.StrategyConfig {
+type ElliottWaveConfigGenerator struct{}
+
+func NewElliottWaveConfigGenerator() *ElliottWaveConfigGenerator {
+	return &ElliottWaveConfigGenerator{}
+}
+
+func (s *ElliottWaveConfigGenerator) Generate() []internal.StrategyConfigV2 {
 
 	configs := lo.CrossJoinBy4(
 		lo.RangeWithSteps[int](3, 10, 1),
 		lo.RangeWithSteps[int](30, 80, 10),
 		lo.RangeWithSteps[float64](0.5, 0.8, 0.1),
 		lo.RangeWithSteps[float64](0.2, 0.5, 0.1),
-		func(minLen int, maxLen int, fibThresh float64, trendStr float64) internal.StrategyConfig {
+		func(minLen int, maxLen int, fibThresh float64, trendStr float64) internal.StrategyConfigV2 {
 			return &ElliottWaveConfig{
 				MinWaveLength:      minLen,
 				MaxWaveLength:      maxLen,
@@ -394,27 +568,44 @@ func (s *ElliottWaveStrategy) OptimizeWithConfig(candles []internal.Candle) inte
 			}
 		})
 
-	max := s.ProcessConfigs(s, candles, configs)
+	return configs
+}
 
-	bestConfig := max.A.(*ElliottWaveConfig)
-	bestProfit := max.B
+func NewElliottWaveStrategyV2(slippage float64) internal.TradingStrategy {
+	// 1. Создаем провайдер проскальзывания
+	slippageProvider := internal.NewSlippageProvider(slippage)
 
-	fmt.Printf("Лучшие параметры волн Эллиотта: min_len=%d, max_len=%d, fib_thresh=%.3f, trend_str=%.1f, профит=%.4f\n",
-		bestConfig.MinWaveLength, bestConfig.MaxWaveLength, bestConfig.FibonacciThreshold,
-		bestConfig.TrendStrength, bestProfit)
+	// 2. Создаем генератор сигналов
+	signalGenerator := NewElliottWaveSignalGenerator()
 
-	return bestConfig
+	// 3. Создаем менеджер конфигурации
+	configManager := internal.NewConfigManager(
+		&ElliottWaveConfig{},
+		func() internal.StrategyConfigV2 {
+			return &ElliottWaveConfig{}
+		},
+	)
+
+	// 4. Создаем генератор конфигураций для оптимизации
+	configGenerator := NewElliottWaveConfigGenerator()
+
+	// 5. Создаем оптимизатор (переиспользуем универсальный GridSearchOptimizer!)
+	optimizer := internal.NewGridSearchOptimizer(
+		slippageProvider,
+		configGenerator.Generate,
+	)
+
+	// 6. Собираем всё вместе через композицию
+	return internal.NewStrategyBase(
+		"elliott_wave_v2",
+		signalGenerator,
+		configManager,
+		optimizer,
+		slippageProvider,
+	)
 }
 
 func init() {
-	internal.RegisterStrategy("elliott_wave", &ElliottWaveStrategy{
-		BaseConfig: internal.BaseConfig{
-			Config: &ElliottWaveConfig{
-				MinWaveLength:      5,
-				MaxWaveLength:      50,
-				FibonacciThreshold: 0.618,
-				TrendStrength:      0.3,
-			},
-		},
-	})
+	strategy := NewElliottWaveStrategyV2(0.01) // default slippage 0.01
+	internal.RegisterStrategyV2(strategy)
 }

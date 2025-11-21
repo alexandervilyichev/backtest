@@ -1,6 +1,7 @@
 package backtester
 
 import (
+	"bt/internal"
 	"fmt"
 	"os"
 	"sort"
@@ -29,12 +30,14 @@ func (p *ConsolePrinter) PrintComparison(results []BenchmarkResult) {
 	fmt.Println(strings.Repeat("═", 120))
 
 	// Заголовок таблицы с улучшенным выравниванием
-	fmt.Printf("│ %-4s │ %-25s │ %-12s │ %-8s │ %-15s │ %-10s │ %-8s │\n",
-		"Ранг", "Стратегия", "Прибыль", "Сделки", "Финал, $", "Время", "Статус")
+	fmt.Printf("│ %-4s │ %-25s │ %-12s │ %-8s │ %-15s │ %-10s │ %-8s │ %-12s │ %-15s │ %-12s │ %-10s │\n",
+		"Ранг", "Стратегия", "Прибыль", "Сделки", "Финал, $", "Время", "Статус", "След.сигнал", "Дата сигнала", "Цена", "Уверен.")
 	fmt.Println("├" + strings.Repeat("─", 6) + "┼" + strings.Repeat("─", 27) + "┼" +
 		strings.Repeat("─", 14) + "┼" + strings.Repeat("─", 10) + "┼" +
 		strings.Repeat("─", 17) + "┼" + strings.Repeat("─", 12) + "┼" +
-		strings.Repeat("─", 10) + "┤")
+		strings.Repeat("─", 10) + "┼" + strings.Repeat("─", 14) + "┼" +
+		strings.Repeat("─", 17) + "┼" + strings.Repeat("─", 14) + "┼" +
+		strings.Repeat("─", 12) + "┤")
 
 	rank := 1
 	for i, r := range results {
@@ -74,15 +77,39 @@ func (p *ConsolePrinter) PrintComparison(results []BenchmarkResult) {
 		// Форматируем финальную сумму
 		finalStr := fmt.Sprintf("$%.2f", r.FinalPortfolio)
 
+		// Форматируем информацию о следующем сигнале
+		nextSignalStr := "⏸️ HOLD"
+		nextSignalDateStr := "Нет данных"
+		nextSignalPriceStr := "-"
+		nextSignalConfStr := "-"
+		if r.NextSignal != nil {
+			switch r.NextSignal.SignalType {
+			case internal.BUY:
+				nextSignalStr = "🟢 BUY"
+			case internal.SELL:
+				nextSignalStr = "🔴 SELL"
+			default:
+				nextSignalStr = "⏸️ HOLD"
+			}
+			signalTime := time.Unix(r.NextSignal.Date, 0)
+			nextSignalDateStr = signalTime.Format("02.01 15:04")
+			nextSignalPriceStr = fmt.Sprintf("$%.4f", r.NextSignal.Price)
+			nextSignalConfStr = fmt.Sprintf("%.1f%%", r.NextSignal.Confidence*100)
+		}
+
 		// Выводим строку таблицы
-		fmt.Printf("│ %-4s │ %-25s │ %-12s │ %-8d │ %-15s │ %-10s │ %-8s │\n",
+		fmt.Printf("│ %-4s │ %-25s │ %-12s │ %-8d │ %-15s │ %-10s │ %-8s │ %-12s │ %-15s │ %-12s │ %-10s │\n",
 			rankStr,
 			p.truncateString(r.Name, 25),
 			profitStr,
 			r.TradeCount,
 			finalStr,
 			timeStr,
-			statusStr)
+			statusStr,
+			nextSignalStr,
+			nextSignalDateStr,
+			nextSignalPriceStr,
+			nextSignalConfStr)
 
 		rank++
 	}
@@ -91,7 +118,9 @@ func (p *ConsolePrinter) PrintComparison(results []BenchmarkResult) {
 	fmt.Println("└" + strings.Repeat("─", 6) + "┴" + strings.Repeat("─", 27) + "┴" +
 		strings.Repeat("─", 14) + "┴" + strings.Repeat("─", 10) + "┴" +
 		strings.Repeat("─", 17) + "┴" + strings.Repeat("─", 12) + "┴" +
-		strings.Repeat("─", 10) + "┘")
+		strings.Repeat("─", 10) + "┴" + strings.Repeat("─", 14) + "┴" +
+		strings.Repeat("─", 17) + "┴" + strings.Repeat("─", 14) + "┴" +
+		strings.Repeat("─", 12) + "┘")
 
 	// Добавляем статистику
 	p.printSummaryStats(results)
@@ -157,12 +186,38 @@ func (p *ConsolePrinter) printSummaryStats(results []BenchmarkResult) {
 	avgProfit := totalProfit / float64(len(results))
 	profitablePercent := float64(profitable) / float64(len(results)) * 100
 
+	// Подсчитываем стратегии с предсказаниями
+	withPredictions := 0
+	buySignals := 0
+	sellSignals := 0
+	for _, r := range results {
+		if r.NextSignal != nil {
+			withPredictions++
+			if r.NextSignal.SignalType == internal.BUY {
+				buySignals++
+			} else if r.NextSignal.SignalType == internal.SELL {
+				sellSignals++
+			}
+		}
+	}
+
 	fmt.Printf("🎯 Всего стратегий:      %d\n", len(results))
 	fmt.Printf("💰 Прибыльных:          %d (%.1f%%)\n", profitable, profitablePercent)
 	fmt.Printf("📊 Средняя прибыль:     %.2f%%\n", avgProfit*100)
 	fmt.Printf("🚀 Лучший результат:    %.2f%% (%s)\n", bestProfit*100, results[0].Name)
 	fmt.Printf("📉 Худший результат:    %.2f%% (%s)\n", worstProfit*100, results[len(results)-1].Name)
 	fmt.Printf("🔄 Всего сделок:        %d\n", totalTrades)
+	
+	if withPredictions > 0 {
+		fmt.Printf("\n🔮 Предсказания:\n")
+		fmt.Printf("   Стратегий с предсказаниями: %d\n", withPredictions)
+		if buySignals > 0 {
+			fmt.Printf("   🟢 BUY сигналов:  %d\n", buySignals)
+		}
+		if sellSignals > 0 {
+			fmt.Printf("   🔴 SELL сигналов: %d\n", sellSignals)
+		}
+	}
 
 	fmt.Println(strings.Repeat("═", 60))
 }
@@ -195,8 +250,8 @@ func (p *MarkdownPrinter) PrintComparison(results []BenchmarkResult) {
 	content.WriteString("## Результаты по стратегиям\n\n")
 
 	// Создаем основную таблицу результатов
-	content.WriteString("| Ранг | Стратегия | Категория | Прибыль | Сделки | Финальный портфель | Время | Статус |\n")
-	content.WriteString("|------|-----------|-----------|---------|--------|-------------------|-------|--------|\n")
+	content.WriteString("| Ранг | Стратегия | Категория | Прибыль | Сделки | Финальный портфель | Время | Статус | След.сигнал | Дата | Цена | Уверенность |\n")
+	content.WriteString("|------|-----------|-----------|---------|--------|-------------------|-------|--------|-------------|------|------|-------------|\n")
 
 	for i, r := range results {
 		rank := i + 1
@@ -206,8 +261,29 @@ func (p *MarkdownPrinter) PrintComparison(results []BenchmarkResult) {
 		timeStr := p.formatDurationMD(r.ExecutionTime)
 		status := p.getStatusText(r.TotalProfit)
 
-		content.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %d | %s | %s | %s |\n",
-			rank, r.Name, category, profitStr, r.TradeCount, finalStr, timeStr, status))
+		// Форматируем информацию о следующем сигнале
+		nextSignalStr := "⏸️ HOLD"
+		nextSignalDateStr := "Нет данных"
+		nextSignalPriceStr := "-"
+		nextSignalConfStr := "-"
+		if r.NextSignal != nil {
+			switch r.NextSignal.SignalType {
+			case internal.BUY:
+				nextSignalStr = "🟢 BUY"
+			case internal.SELL:
+				nextSignalStr = "🔴 SELL"
+			default:
+				nextSignalStr = "⏸️ HOLD"
+			}
+			signalTime := time.Unix(r.NextSignal.Date, 0)
+			nextSignalDateStr = signalTime.Format("02.01.2006 15:04")
+			nextSignalPriceStr = fmt.Sprintf("$%.4f", r.NextSignal.Price)
+			nextSignalConfStr = fmt.Sprintf("%.1f%%", r.NextSignal.Confidence*100)
+		}
+
+		content.WriteString(fmt.Sprintf("| %d | %s | %s | %s | %d | %s | %s | %s | %s | %s | %s | %s |\n",
+			rank, r.Name, category, profitStr, r.TradeCount, finalStr, timeStr, status,
+			nextSignalStr, nextSignalDateStr, nextSignalPriceStr, nextSignalConfStr))
 	}
 
 	content.WriteString("\n")

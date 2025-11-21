@@ -36,6 +36,176 @@ func NewGoldenCrossSignalGenerator() *GoldenCrossSignalGenerator {
 	return &GoldenCrossSignalGenerator{}
 }
 
+// PredictNextSignal предсказывает ближайший сигнал Golden/Death Cross
+func (sg *GoldenCrossSignalGenerator) PredictNextSignal(candles []internal.Candle, config internal.StrategyConfigV2) *internal.FutureSignal {
+	gcConfig, ok := config.(*GoldenCrossConfig)
+	if !ok {
+		return nil
+	}
+
+	if err := gcConfig.Validate(); err != nil {
+		return nil
+	}
+
+	if len(candles) < gcConfig.SlowPeriod*2 {
+		return nil
+	}
+
+	// Извлекаем цены закрытия
+	prices := make([]float64, len(candles))
+	for i, candle := range candles {
+		prices[i] = candle.Close.ToFloat64()
+	}
+
+	// Рассчитываем EMA
+	fastEMA := internal.CalculateEMAForValues(prices, gcConfig.FastPeriod)
+	slowEMA := internal.CalculateEMAForValues(prices, gcConfig.SlowPeriod)
+
+	if fastEMA == nil || slowEMA == nil {
+		return nil
+	}
+
+	currentIdx := len(candles) - 1
+	currFast := fastEMA[currentIdx]
+	currSlow := slowEMA[currentIdx]
+
+	// Определяем текущее состояние
+	isFastAbove := currFast > currSlow
+
+	// Вычисляем скорость изменения EMA (производная)
+	lookback := 5
+	if currentIdx < lookback {
+		lookback = currentIdx
+	}
+
+	if lookback < 2 {
+		return nil
+	}
+
+	// Вычисляем средние скорости изменения
+	fastVelocity := (fastEMA[currentIdx] - fastEMA[currentIdx-lookback]) / float64(lookback)
+	slowVelocity := (slowEMA[currentIdx] - slowEMA[currentIdx-lookback]) / float64(lookback)
+
+	// Относительная скорость сближения/расхождения
+	relativeVelocity := fastVelocity - slowVelocity
+
+	// Если линии расходятся, предсказание невозможно
+	// Расхождение происходит когда:
+	// 1. Fast выше Slow и растет быстрее (relativeVelocity > 0)
+	// 2. Fast ниже Slow и падает быстрее (relativeVelocity < 0)
+	// Сближение происходит когда:
+	// 1. Fast выше Slow но растет медленнее или падает быстрее (relativeVelocity < 0)
+	// 2. Fast ниже Slow но растет быстрее или падает медленнее (relativeVelocity > 0)
+	
+	if isFastAbove && relativeVelocity > 0 {
+		// Fast выше и продолжает расти быстрее - расхождение вверх
+		return nil
+	}
+	if !isFastAbove && relativeVelocity < 0 {
+		// Fast ниже и продолжает падать быстрее - расхождение вниз
+		return nil
+	}
+
+	// Текущее расстояние между линиями
+	distance := currFast - currSlow
+
+	// Если скорость сближения слишком мала, предсказание ненадежно
+	if internal.Abs(relativeVelocity) < 0.0001 {
+		return nil
+	}
+
+	// Предсказываем количество свечей до пересечения
+	candlesUntilCross := internal.Abs(distance / relativeVelocity)
+
+	// Ограничиваем горизонт предсказания
+	maxHorizon := float64(gcConfig.SlowPeriod)
+	if candlesUntilCross > maxHorizon {
+		return nil
+	}
+
+	if candlesUntilCross < 1 {
+		candlesUntilCross = 1
+	}
+
+	// Округляем до целого числа свечей
+	predictedCandles := int(candlesUntilCross + 0.5)
+
+	// Экстраполируем цену в точке пересечения
+	// Используем линейную экстраполяцию текущей цены
+	priceVelocity := (prices[currentIdx] - prices[currentIdx-lookback]) / float64(lookback)
+	predictedPrice := prices[currentIdx] + priceVelocity*float64(predictedCandles)
+
+	// Определяем тип сигнала
+	var signalType internal.SignalType
+	if isFastAbove {
+		// Fast выше, но сближается - ожидается Death Cross (SELL)
+		signalType = internal.SELL
+	} else {
+		// Fast ниже, но сближается - ожидается Golden Cross (BUY)
+		signalType = internal.BUY
+	}
+
+	// Вычисляем уверенность на основе:
+	// 1. Скорости сближения (чем быстрее, тем увереннее)
+	// 2. Расстояния до пересечения (чем ближе, тем увереннее)
+	// 3. Стабильности скорости
+
+	// Базовая уверенность от скорости сближения
+	velocityConfidence := internal.Min(internal.Abs(relativeVelocity)*1000, 0.5)
+
+	// Бонус за близость пересечения
+	distanceConfidence := 0.0
+	if candlesUntilCross < float64(gcConfig.FastPeriod) {
+		distanceConfidence = 0.3
+	} else if candlesUntilCross < float64(gcConfig.SlowPeriod)/2 {
+		distanceConfidence = 0.2
+	} else {
+		distanceConfidence = 0.1
+	}
+
+	// Проверяем стабильность скорости (сравниваем с более ранним периодом)
+	stabilityBonus := 0.0
+	if currentIdx >= lookback*2 {
+		prevFastVelocity := (fastEMA[currentIdx-lookback] - fastEMA[currentIdx-lookback*2]) / float64(lookback)
+		prevSlowVelocity := (slowEMA[currentIdx-lookback] - slowEMA[currentIdx-lookback*2]) / float64(lookback)
+		prevRelativeVelocity := prevFastVelocity - prevSlowVelocity
+
+		// Если скорости одного знака и близки по величине - стабильно
+		if relativeVelocity*prevRelativeVelocity > 0 {
+			ratio := internal.Abs(relativeVelocity / prevRelativeVelocity)
+			if ratio > 0.5 && ratio < 2.0 {
+				stabilityBonus = 0.2
+			}
+		}
+	}
+
+	confidence := velocityConfidence + distanceConfidence + stabilityBonus
+
+	// Ограничиваем диапазон
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+	if confidence < 0.1 {
+		confidence = 0.1
+	}
+
+	// Вычисляем дату сигнала
+	if len(candles) < 2 {
+		return nil
+	}
+
+	timeInterval := (candles[len(candles)-1].ToTime().Unix() - candles[0].ToTime().Unix()) / int64(len(candles)-1)
+	lastTimestamp := candles[len(candles)-1].ToTime().Unix()
+	futureTimestamp := lastTimestamp + timeInterval*int64(predictedCandles)
+
+	return &internal.FutureSignal{
+		SignalType: signalType,
+		Date:       futureTimestamp,
+		Price:      predictedPrice,
+		Confidence: confidence,
+	}
+}
+
 func (sg *GoldenCrossSignalGenerator) GenerateSignals(candles []internal.Candle, config internal.StrategyConfigV2) []internal.SignalType {
 	gcConfig, ok := config.(*GoldenCrossConfig)
 	if !ok {

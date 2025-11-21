@@ -35,11 +35,27 @@ func (s *FileSaver) SaveTopStrategies(candles []internal.Candle, results []Bench
 	for i := 0; i < topN && i < len(results); i++ {
 		strategyName := results[i].Name
 
-		// Получаем стратегию и генерируем сигналы
-		strategy := internal.GetStrategy(strategyName)
-
-		config := strategy.OptimizeWithConfig(candles)
-		signals := strategy.GenerateSignalsWithConfig(candles, config)
+		// Пробуем получить стратегию V2
+		var signals []internal.SignalType
+		var configInterface interface{}
+		
+		strategyV2, isV2 := internal.GetStrategyV2(strategyName)
+		if isV2 && strategyV2 != nil {
+			// Стратегия V2
+			config := strategyV2.Optimize(candles, strategyV2)
+			signals = strategyV2.GenerateSignals(candles, config)
+			configInterface = config
+		} else {
+			// Стратегия V1
+			strategy := internal.GetStrategy(strategyName)
+			if strategy == nil {
+				log.Printf("❌ Стратегия %s не найдена", strategyName)
+				continue
+			}
+			config := strategy.OptimizeWithConfig(candles)
+			signals = strategy.GenerateSignalsWithConfig(candles, config)
+			configInterface = config
+		}
 
 		// Создаем массив свечей с сигналами
 		candlesWithSignals := make([]CandleWithSignal, len(candles))
@@ -66,13 +82,13 @@ func (s *FileSaver) SaveTopStrategies(candles []internal.Candle, results []Bench
 
 		// Сохраняем в файл
 		data := struct {
-			Strategy string                  `json:"strategy"`
-			Config   internal.StrategyConfig `json:"config"`
-			Profit   float64                 `json:"profit"`
-			Candles  []CandleWithSignal      `json:"candles"`
+			Strategy string             `json:"strategy"`
+			Config   interface{}        `json:"config"`
+			Profit   float64            `json:"profit"`
+			Candles  []CandleWithSignal `json:"candles"`
 		}{
 			Strategy: strategyName,
-			Config:   config,
+			Config:   configInterface,
 			Profit:   results[i].TotalProfit,
 			Candles:  candlesWithSignals,
 		}

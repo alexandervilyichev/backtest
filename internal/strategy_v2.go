@@ -21,9 +21,25 @@ type StrategyConfigV2 interface {
 	String() string
 }
 
+// FutureSignal - будущий сигнал с датой
+type FutureSignal struct {
+	SignalType SignalType
+	Date       int64 // Unix timestamp
+	Price      float64
+	Confidence float64
+}
+
 // SignalGenerator - генератор торговых сигналов
 type SignalGenerator interface {
 	GenerateSignals(candles []Candle, config StrategyConfigV2) []SignalType
+}
+
+// PredictiveSignalGenerator - генератор с возможностью предсказания будущих сигналов
+type PredictiveSignalGenerator interface {
+	SignalGenerator
+	// PredictNextSignal - предсказывает ближайший сигнал в будущем
+	// Возвращает nil, если предсказание невозможно
+	PredictNextSignal(candles []Candle, config StrategyConfigV2) *FutureSignal
 }
 
 // ConfigOptimizer - оптимизатор конфигурации
@@ -173,6 +189,14 @@ func (sb *StrategyBase) Name() string {
 
 func (sb *StrategyBase) GenerateSignals(candles []Candle, config StrategyConfigV2) []SignalType {
 	return sb.signalGenerator.GenerateSignals(candles, config)
+}
+
+func (sb *StrategyBase) PredictNextSignal(candles []Candle, config StrategyConfigV2) *FutureSignal {
+	// Проверяем, поддерживает ли генератор предсказание
+	if predictive, ok := sb.signalGenerator.(PredictiveSignalGenerator); ok {
+		return predictive.PredictNextSignal(candles, config)
+	}
+	return nil
 }
 
 func (sb *StrategyBase) Optimize(candles []Candle, generator SignalGenerator) StrategyConfigV2 {
