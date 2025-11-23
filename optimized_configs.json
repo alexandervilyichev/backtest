@@ -4,6 +4,11 @@
     "slow_period": 55,
     "confirm_by_two_candles": true
   },
+  "awesome_oscillator_v2": {
+    "fast_period": 3,
+    "slow_period": 55,
+    "confirm_by_two_candles": true
+  },
   "bollinger_bands": {
     "period": 10,
     "multiplier": 3
@@ -25,7 +30,7 @@
     "fibonacci_threshold": 0.5,
     "trend_strength": 0.2
   },
-  "envelopes": {
+  "envelopes_v2": {
     "period": 75,
     "percentage": 0.013500000000000003
   },
@@ -153,6 +158,11 @@
     "buy_threshold": 14,
     "sell_threshold": 79
   },
+  "rsi_oscillator_v2": {
+    "period": 11,
+    "buy_threshold": 14,
+    "sell_threshold": 79
+  },
   "stochastic_oscillator": {
     "k_period": 10,
     "d_period": 5,
@@ -160,6 +170,10 @@
     "sell_level": 85
   },
   "supertrend": {
+    "period": 11,
+    "multiplier": 4
+  },
+  "supertrend_v2": {
     "period": 11,
     "multiplier": 4
   },
