@@ -13,7 +13,7 @@ type BenchmarkResult struct {
 	FinalPortfolio float64
 	ExecutionTime  time.Duration
 	// Предсказание следующего сигнала
-	NextSignal     *internal.FutureSignal
+	NextSignal *internal.FutureSignal
 }
 
 // CandleWithSignal — свеча с сигналом для построения графиков
@@ -54,4 +54,5 @@ type Config struct {
 	MemProfile  string
 	ConfigFile  string
 	ProfPort    int
+	Workers     int // Количество параллельных воркеров (0 = auto = NumCPU)
 }

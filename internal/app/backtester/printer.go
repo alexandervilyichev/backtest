@@ -207,7 +207,7 @@ func (p *ConsolePrinter) printSummaryStats(results []BenchmarkResult) {
 	fmt.Printf("🚀 Лучший результат:    %.2f%% (%s)\n", bestProfit*100, results[0].Name)
 	fmt.Printf("📉 Худший результат:    %.2f%% (%s)\n", worstProfit*100, results[len(results)-1].Name)
 	fmt.Printf("🔄 Всего сделок:        %d\n", totalTrades)
-	
+
 	if withPredictions > 0 {
 		fmt.Printf("\n🔮 Предсказания:\n")
 		fmt.Printf("   Стратегий с предсказаниями: %d\n", withPredictions)
@@ -343,34 +343,36 @@ func (p *MarkdownPrinter) writeTechnicalDetails(content *strings.Builder, result
 // getStrategyCategory — определяет категорию стратегии по имени
 func (p *MarkdownPrinter) getStrategyCategory(name string) string {
 	categoryMap := map[string]string{
-		"elliott_wave":          "Волновой анализ",
-		"arima":                 "Статистические методы",
-		"heston":                "Статистические методы",
-		"golden_cross":          "Трендовые стратегии",
-		"ma_crossover":          "Трендовые стратегии",
-		"supertrend":            "Трендовые стратегии",
-		"fomo":                  "Трендовые стратегии",
-		"rsi_oscillator":        "Осцилляторы",
-		"cci_oscillator":        "Осцилляторы",
-		"stochastic_oscillator": "Осцилляторы",
-		"ao_oscillator":         "Осцилляторы",
-		"qstick_oscillator":     "Осцилляторы",
-		"momentum_breakout":     "Волатильность",
-		"bollinger_bands":       "Волатильность",
-		"garch_volatility":      "Волатильность",
-		"ulcer_index":           "Волатильность",
-		"macd":                  "Моментум",
-		"ma_channel":            "Моментум",
-		"volume_breakout":       "Объемные стратегии",
-		"obv":                   "Объемные стратегии",
-		"extrema":               "Экстремумы",
-		"optimal_extrema":       "Экстремумы",
-		"ma_ema_correlation":    "Скользящие средние",
-		"buy_and_hold":          "Простые стратегии",
-		"monthly_rebalance":     "Ребалансировка",
-		"pullback_sell":         "Стратегии продажи",
-		"support_line":          "Линии поддержки/сопротивления",
-		"wavelet_denoise":       "Линии поддержки/сопротивления",
+		"elliott_wave":             "Волновой анализ",
+		"elliott_wave_advanced_v2": "Волновой анализ (расширенный)",
+		"arima":                    "Статистические методы",
+		"heston":                   "Статистические методы",
+		"golden_cross":             "Трендовые стратегии",
+		"ma_crossover":             "Трендовые стратегии",
+		"supertrend":               "Трендовые стратегии",
+		"fomo":                     "Трендовые стратегии",
+		"rsi_oscillator":           "Осцилляторы",
+		"cci_oscillator":           "Осцилляторы",
+		"stochastic_oscillator":    "Осцилляторы",
+		"ao_oscillator":            "Осцилляторы",
+		"qstick_oscillator":        "Осцилляторы",
+		"momentum_breakout":        "Волатильность",
+		"bollinger_bands":          "Волатильность",
+		"garch_volatility":         "Волатильность",
+		"ulcer_index":              "Волатильность",
+		"macd":                     "Моментум",
+		"ma_channel":               "Моментум",
+		"volume_breakout":          "Объемные стратегии",
+		"obv":                      "Объемные стратегии",
+		"extrema":                  "Экстремумы",
+		"optimal_extrema":          "Экстремумы",
+		"ma_ema_correlation":       "Скользящие средние",
+		"buy_and_hold":             "Простые стратегии",
+		"monthly_rebalance":        "Ребалансировка",
+		"pullback_sell":            "Стратегии продажи",
+		"support_line":             "Линии поддержки/сопротивления",
+		"wavelet_denoise":          "Линии поддержки/сопротивления",
+		"chart_patterns":           "Ценовые паттерны",
 	}
 
 	// Ищем по частичному совпадению имени

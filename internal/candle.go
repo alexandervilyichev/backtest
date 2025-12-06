@@ -29,6 +29,24 @@ func (p *Price) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalJSON реализует пользовательскую сериализацию JSON для Price.
+// Преобразует float64 обратно в объект {"units": "", "nano": 0}.
+func (p Price) MarshalJSON() ([]byte, error) {
+	value := float64(p)
+	units := int64(value)
+	nano := int32((value - float64(units)) * 1_000_000_000.0)
+
+	temp := struct {
+		Units string `json:"units"`
+		Nano  int32  `json:"nano"`
+	}{
+		Units: strconv.FormatInt(units, 10),
+		Nano:  nano,
+	}
+
+	return json.Marshal(temp)
+}
+
 // ToFloat64 возвращает значение Price как float64.
 // Теперь это простое приведение типов, поскольку преобразование происходит на этапе загрузки JSON.
 func (p Price) ToFloat64() float64 {
@@ -62,6 +80,12 @@ func (c *Candle) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
+
+	// Сохраняем время в строковое поле
+	c.Time = aux.Time
+
+	// Сохраняем volume в строковое поле
+	c.Volume = aux.Volume
 
 	// Парсим время один раз и сохраняем в precomputed поле
 	c.ParsedTime = time.Time{} // По умолчанию - нулевое время

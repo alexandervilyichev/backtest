@@ -26,6 +26,22 @@
     "fibonacci_threshold": 0.618,
     "trend_strength": 0.3
   },
+  "elliott_wave_advanced_v2": {
+    "min_wave_length": 5,
+    "max_wave_length": 50,
+    "min_wave_amplitude": 0.01,
+    "fib_retracement_min": 0.382,
+    "fib_retracement_max": 0.618,
+    "fib_extension_min": 1.0,
+    "fib_extension_max": 1.618,
+    "wave3_min_multiplier": 1.5,
+    "wave5_max_multiplier": 1.0,
+    "trend_strength": 0.3,
+    "use_alternative_counts": true,
+    "use_time_relations": true,
+    "use_correction_patterns": true,
+    "confidence_threshold": 0.5
+  },
   "extrema_strategy": {
     "min_distance": 40,
     "window_size": 20,

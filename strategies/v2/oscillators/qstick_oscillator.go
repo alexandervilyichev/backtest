@@ -196,6 +196,294 @@ func (s *QStickSignalGenerator) GenerateSignals(candles []internal.Candle, confi
 	return signals
 }
 
+// PredictNextSignal предсказывает ближайший сигнал QStick
+func (s *QStickSignalGenerator) PredictNextSignal(candles []internal.Candle, config internal.StrategyConfigV2) *internal.FutureSignal {
+	qstickConfig, ok := config.(*QStickConfig)
+	if !ok {
+		return nil
+	}
+
+	if err := qstickConfig.Validate(); err != nil {
+		return nil
+	}
+
+	minCandles := qstickConfig.Period * 3
+	if len(candles) < minCandles {
+		return nil
+	}
+
+	// Вычисляем QStick
+	qstickValues := calculateQstickValues(candles, qstickConfig.Period)
+	if qstickValues == nil {
+		return nil
+	}
+
+	// Вычисляем тренд
+	trendValues := calculateTrendDirection(candles, qstickConfig.Period*2)
+	if trendValues == nil {
+		return nil
+	}
+
+	currentIdx := len(candles) - 1
+	currentQstick := qstickValues[currentIdx]
+	currentTrend := trendValues[currentIdx]
+
+	// Анализируем последние несколько значений для определения скорости изменения
+	lookback := 5
+	if lookback > qstickConfig.Period/2 {
+		lookback = qstickConfig.Period / 2
+	}
+	if lookback < 3 {
+		lookback = 3
+	}
+
+	if currentIdx < qstickConfig.Period+lookback {
+		return nil
+	}
+
+	// Вычисляем среднюю скорость изменения QStick
+	qstickVelocity := 0.0
+	for i := 0; i < lookback-1; i++ {
+		idx := currentIdx - i
+		prevIdx := idx - 1
+		qstickChange := qstickValues[idx] - qstickValues[prevIdx]
+		qstickVelocity += qstickChange
+	}
+	qstickVelocity /= float64(lookback - 1)
+
+	// Определяем текущее положение и ожидаемый сигнал
+	var targetSignal internal.SignalType
+	var targetLevel float64
+	var distanceToTarget float64
+
+	// Определяем, к какому уровню движется QStick
+	if currentQstick < qstickConfig.BuyThreshold {
+		// QStick ниже порога покупки
+		if qstickVelocity <= 0 {
+			// Продолжает падать - сигнал не ожидается скоро
+			return nil
+		}
+		// Растет к порогу покупки
+		targetSignal = internal.BUY
+		targetLevel = qstickConfig.BuyThreshold
+		distanceToTarget = targetLevel - currentQstick
+	} else if currentQstick > qstickConfig.SellThreshold {
+		// QStick выше порога продажи
+		if qstickVelocity >= 0 {
+			// Продолжает расти - сигнал не ожидается скоро
+			return nil
+		}
+		// Падает к порогу продажи
+		targetSignal = internal.SELL
+		targetLevel = qstickConfig.SellThreshold
+		distanceToTarget = currentQstick - targetLevel
+	} else {
+		// QStick в нейтральной зоне - определяем направление движения
+		if qstickVelocity > 0 && currentTrend > 0 {
+			// QStick растет и тренд положительный - ожидаем BUY
+			targetSignal = internal.BUY
+			targetLevel = qstickConfig.BuyThreshold
+			distanceToTarget = targetLevel - currentQstick
+			if distanceToTarget < 0 {
+				distanceToTarget = 0.1 // Уже выше порога, скоро сигнал
+			}
+		} else if qstickVelocity < 0 && currentTrend < 0 {
+			// QStick падает и тренд отрицательный - ожидаем SELL
+			targetSignal = internal.SELL
+			targetLevel = qstickConfig.SellThreshold
+			distanceToTarget = currentQstick - targetLevel
+			if distanceToTarget < 0 {
+				distanceToTarget = 0.1 // Уже ниже порога, скоро сигнал
+			}
+		} else {
+			// Нет четкого направления
+			return nil
+		}
+	}
+
+	// Проверяем, достаточно ли сильное движение
+	if qstickVelocity == 0 || distanceToTarget < 0 {
+		return nil
+	}
+
+	// Вычисляем количество свечей до достижения целевого уровня
+	candlesToTarget := int(distanceToTarget / (qstickVelocity + 0.0001))
+	if candlesToTarget < 0 {
+		candlesToTarget = -candlesToTarget
+	}
+
+	// Ограничиваем горизонт предсказания
+	maxHorizon := qstickConfig.Period * 2
+	if candlesToTarget > maxHorizon {
+		candlesToTarget = maxHorizon
+	}
+	if candlesToTarget < 1 {
+		candlesToTarget = 1
+	}
+
+	// Вычисляем скорость изменения цены
+	priceVelocity := 0.0
+	for i := 0; i < lookback-1; i++ {
+		idx := currentIdx - i
+		prevIdx := idx - 1
+		priceChange := candles[idx].Close.ToFloat64() - candles[prevIdx].Close.ToFloat64()
+		priceVelocity += priceChange
+	}
+	priceVelocity /= float64(lookback - 1)
+
+	// Экстраполируем цену в будущее
+	currentPrice := candles[currentIdx].Close.ToFloat64()
+	futurePrice := currentPrice + priceVelocity*float64(candlesToTarget)
+
+	// Вычисляем уверенность в предсказании
+	confidence := calculateQstickConfidence(
+		qstickVelocity,
+		distanceToTarget,
+		currentQstick,
+		targetLevel,
+		currentTrend,
+		priceVelocity,
+		candlesToTarget,
+		maxHorizon,
+		qstickValues,
+		trendValues,
+		currentIdx,
+		lookback,
+	)
+
+	// Минимальный порог уверенности
+	if confidence < 0.30 {
+		return nil
+	}
+
+	// Вычисляем дату сигнала
+	if len(candles) < 2 {
+		return nil
+	}
+
+	timeInterval := (candles[len(candles)-1].ToTime().Unix() - candles[0].ToTime().Unix()) / int64(len(candles)-1)
+	lastTimestamp := candles[len(candles)-1].ToTime().Unix()
+	futureTimestamp := lastTimestamp + timeInterval*int64(candlesToTarget)
+
+	return &internal.FutureSignal{
+		SignalType: targetSignal,
+		Date:       futureTimestamp,
+		Price:      futurePrice,
+		Confidence: confidence,
+	}
+}
+
+// calculateQstickConfidence вычисляет уверенность в предсказании
+func calculateQstickConfidence(
+	qstickVelocity float64,
+	distanceToTarget float64,
+	currentQstick float64,
+	targetLevel float64,
+	currentTrend float64,
+	priceVelocity float64,
+	candlesToTarget int,
+	maxHorizon int,
+	qstickValues []float64,
+	trendValues []float64,
+	currentIdx int,
+	lookback int,
+) float64 {
+	confidence := 0.5 // Базовая уверенность
+
+	// Фактор 1: Сила движения QStick (чем сильнее, тем лучше)
+	velocityStrength := qstickVelocity
+	if velocityStrength < 0 {
+		velocityStrength = -velocityStrength
+	}
+	if velocityStrength > 0.1 {
+		confidence += 0.20
+	} else if velocityStrength > 0.05 {
+		confidence += 0.15
+	} else if velocityStrength > 0.02 {
+		confidence += 0.10
+	}
+
+	// Фактор 2: Близость к целевому уровню (чем ближе, тем выше уверенность)
+	if distanceToTarget < 0.2 {
+		confidence += 0.20
+	} else if distanceToTarget < 0.5 {
+		confidence += 0.15
+	} else if distanceToTarget < 1.0 {
+		confidence += 0.10
+	} else if distanceToTarget > 2.0 {
+		confidence -= 0.10
+	}
+
+	// Фактор 3: Согласованность с трендом
+	trendStrength := currentTrend
+	if trendStrength < 0 {
+		trendStrength = -trendStrength
+	}
+	if (qstickVelocity > 0 && currentTrend > 0) || (qstickVelocity < 0 && currentTrend < 0) {
+		// QStick и тренд в одном направлении
+		if trendStrength > 0.01 {
+			confidence += 0.20
+		} else if trendStrength > 0.005 {
+			confidence += 0.15
+		} else {
+			confidence += 0.10
+		}
+	} else {
+		// Дивергенция - снижаем уверенность
+		confidence -= 0.10
+	}
+
+	// Фактор 4: Стабильность скорости изменения QStick
+	if currentIdx >= lookback*2 {
+		prevVelocity := 0.0
+		for i := lookback; i < lookback*2-1; i++ {
+			idx := currentIdx - i
+			prevIdx := idx - 1
+			qstickChange := qstickValues[idx] - qstickValues[prevIdx]
+			prevVelocity += qstickChange
+		}
+		prevVelocity /= float64(lookback - 1)
+
+		// Если скорости одного знака и близки по величине - стабильно
+		if qstickVelocity*prevVelocity > 0 {
+			ratio := qstickVelocity / prevVelocity
+			if ratio < 0 {
+				ratio = -ratio
+			}
+			if ratio > 0.5 && ratio < 2.0 {
+				confidence += 0.15
+			} else if ratio > 0.3 && ratio < 3.0 {
+				confidence += 0.10
+			}
+		}
+	}
+
+	// Фактор 5: Горизонт предсказания (чем дальше, тем менее уверены)
+	horizonRatio := float64(candlesToTarget) / float64(maxHorizon)
+	if horizonRatio < 0.25 {
+		confidence += 0.10
+	} else if horizonRatio > 0.75 {
+		confidence -= 0.20
+	}
+
+	// Фактор 6: Согласованность движения QStick и цены
+	if (qstickVelocity > 0 && priceVelocity > 0) || (qstickVelocity < 0 && priceVelocity < 0) {
+		confidence += 0.10
+	} else {
+		confidence -= 0.05
+	}
+
+	// Ограничиваем диапазон
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+	if confidence < 0 {
+		confidence = 0
+	}
+
+	return confidence
+}
+
 type QstickConfigGenerator struct{}
 
 func NewQstickConfigGenerator() *QstickConfigGenerator {

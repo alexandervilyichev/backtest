@@ -95,9 +95,17 @@ go run ./cmd/backtester/ -file tmos_big.json -strategy all  -save_signals=5
 # Отключить сохранение файлов с сигналами
 go run ./cmd/backtester/ -file tmos_big.json -strategy all -save_signals=0
 
+# Ограничить количество параллельных воркеров (для экономии памяти)
+go run ./cmd/backtester/ -file tmos_big.json -strategy all -workers=4
+
+# Использовать только 1 воркер (последовательное выполнение)
+go run ./cmd/backtester/ -file tmos_big.json -strategy all -workers=1
+
 # Комбинированные параметры
-go run ./cmd/backtester/ -file tmos_big.json -strategy all -debug -save_signals=1
+go run ./cmd/backtester/ -file tmos_big.json -strategy all -debug -save_signals=1 -workers=6
 ```
+
+**💡 Совет**: При работе с большими файлами (>50k свечей) используйте флаг `--workers` для ограничения потребления памяти. Подробнее см. [MEMORY_OPTIMIZATION.md](MEMORY_OPTIMIZATION.md)
 
 #### Доступные стратегии
 
@@ -235,7 +243,17 @@ Options:
   -debug
         Включить детальное логирование
   -save_signals int
-        Сохранить топ-N стратегий с сигналами (0 = не сохранять) (default 3)
+        Сохранить топ-N стратегий с сигналами (0 = не сохранять) (default 0)
+  -workers int
+        Количество параллельных воркеров (0 = auto = NumCPU) (default 0)
+  -config string
+        Путь к JSON-файлу с конфигурациями стратегий (пусто = оптимизация)
+  -cpu_profile string
+        Файл для CPU профилирования (пусто = отключено)
+  -mem_profile string
+        Файл для памяти профилирования (пусто = отключено)
+  -prof_port int
+        Порт для realtime профилирования (0 = отключено) (default 0)
 ```
 
 ### fetcher

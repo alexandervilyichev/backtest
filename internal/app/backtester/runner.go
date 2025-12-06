@@ -292,15 +292,21 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 		fmt.Println("🚀 ЗАПУСК МАССОВОГО ТЕСТИРОВАНИЯ СТРАТЕГИЙ")
 	}
 	fmt.Println(strings.Repeat("═", 80))
-	fmt.Printf("🔥 Параллельное выполнение на %d ядрах\n", runtime.NumCPU())
+
+	// Ограничиваем количество одновременных горутин для экономии памяти
+	maxWorkers := r.config.Workers
+	if maxWorkers <= 0 {
+		maxWorkers = runtime.NumCPU()
+	}
+	fmt.Printf("🔥 Параллельное выполнение с %d воркерами (CPU: %d)\n", maxWorkers, runtime.NumCPU())
 	fmt.Printf("📊 Данных для анализа: %d свечей\n", len(candles))
 
 	startTime := time.Now()
-	
+
 	// Получаем стратегии из обоих реестров (V1 + V2)
 	strategyNamesV1 := internal.GetStrategyNames()
 	strategyNamesV2 := internal.GetStrategyNamesV2()
-	
+
 	// Объединяем списки стратегий
 	strategyNames := append(strategyNamesV1, strategyNamesV2...)
 	totalStrategies := len(strategyNames)
@@ -315,41 +321,46 @@ func (r *ParallelStrategyRunner) RunAllStrategies(candles []internal.Candle) ([]
 	fmt.Printf("🎯 Всего стратегий к запуску: %d (V1: %d, V2: %d)\n", totalStrategies, len(strategyNamesV1), len(strategyNamesV2))
 	fmt.Println(strings.Repeat("─", 80))
 
-	// Канал для результатов
+	// Каналы для координации работы
+	jobsChan := make(chan string, totalStrategies)
 	resultsChan := make(chan BenchmarkResult, totalStrategies)
 	configsChan := make(chan map[string]internal.StrategyConfig, totalStrategies)
 	var wg sync.WaitGroup
 
-	// Запускаем стратегии параллельно
-	for _, name := range strategyNames {
+	// Запускаем пул воркеров
+	for w := 0; w < maxWorkers; w++ {
 		wg.Add(1)
-
-		go func(strategyName string) {
+		go func(workerID int) {
 			defer wg.Done()
 
-			if result, config, err := r.RunStrategyWithConfig(strategyName, candles); err != nil {
-				fmt.Printf("❌ Ошибка при запуске стратегии %s: %v\n", strategyName, err)
-				return
-			} else {
-				resultsChan <- *result
-				configsChan <- map[string]internal.StrategyConfig{strategyName: config}
-				fmt.Printf("✅ %-25s │ Прибыль: %+7.2f%% │ Сделки: %4d │ Время: %8v\n",
-					result.Name, result.TotalProfit*100, result.TradeCount, result.ExecutionTime)
+			for strategyName := range jobsChan {
+				if result, config, err := r.RunStrategyWithConfig(strategyName, candles); err != nil {
+					fmt.Printf("❌ Ошибка при запуске стратегии %s: %v\n", strategyName, err)
+				} else {
+					resultsChan <- *result
+					configsChan <- map[string]internal.StrategyConfig{strategyName: config}
+					fmt.Printf("✅ %-25s │ Прибыль: %+7.2f%% │ Сделки: %4d │ Время: %8v\n",
+						result.Name, result.TotalProfit*100, result.TradeCount, result.ExecutionTime)
+				}
 			}
-		}(name)
+		}(w)
 	}
 
-	// Ждем завершения всех горутин
+	// Отправляем задачи в канал
+	for _, name := range strategyNames {
+		jobsChan <- name
+	}
+	close(jobsChan)
+
+	// Ждем завершения всех воркеров
 	wg.Wait()
 	close(resultsChan)
 	close(configsChan)
 
 	// Собираем результаты
 	var results []BenchmarkResult
-	completed := 0
 	for result := range resultsChan {
 		results = append(results, result)
-		completed++
 	}
 
 	// Собираем конфигурации для сохранения

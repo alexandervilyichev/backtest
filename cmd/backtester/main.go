@@ -33,7 +33,9 @@ import (
 	_ "bt/strategies/v1/volume"
 
 	_ "bt/strategies/v2/lines"
+	_ "bt/strategies/v2/momentum"
 	_ "bt/strategies/v2/oscillators"
+
 	_ "bt/strategies/v2/trend"
 	_ "bt/strategies/v2/volatility"
 	_ "bt/strategies/v2/wave"
@@ -161,13 +163,17 @@ func main() {
 // parseFlags — парсит командную строку и возвращает конфигурацию
 func parseFlags() backtester.Config {
 	filename := flag.String("file", "candles.json", "Путь к JSON-файлу со свечами")
-	strategyName := flag.String("strategy", "all", "Стратегия: all (все стратегии) или "+strings.Join(internal.GetStrategyNames(), ", "))
+
+	// Combine V1 and V2 strategy names for help
+	allStrategyNames := append(internal.GetStrategyNames(), internal.GetStrategyNamesV2()...)
+	strategyName := flag.String("strategy", "all", "Стратегия: all (все стратегии) или "+strings.Join(allStrategyNames, ", "))
 	debug := flag.Bool("debug", false, "Включить детальное логирование")
 	saveSignals := flag.Int("save_signals", 0, "Сохранить топ-N стратегий с сигналами (0 = не сохранять)")
 	cpuProfile := flag.String("cpu_profile", "", "Файл для CPU профилирования (пусто = отключено)")
 	memProfile := flag.String("mem_profile", "", "Файл для памяти профилирования (пусто = отключено)")
 	configFile := flag.String("config", "", "Путь к JSON-файлу с конфигурациями стратегий (пусто = оптимизация)")
 	profPort := flag.Int("prof_port", 0, "Порт для realtime профилирования (0 = отключено)")
+	workers := flag.Int("workers", 0, "Количество параллельных воркеров (0 = auto = NumCPU)")
 	flag.Parse()
 
 	return backtester.Config{
@@ -179,6 +185,7 @@ func parseFlags() backtester.Config {
 		MemProfile:  *memProfile,
 		ConfigFile:  *configFile,
 		ProfPort:    *profPort,
+		Workers:     *workers,
 	}
 }
 

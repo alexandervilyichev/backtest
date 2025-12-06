@@ -6,6 +6,7 @@ __pycache__
 *.so
 *.dylib
 backtester
+cmd/fetcher/fetcher
 
 # Unignore all dirs
 !*/
@@ -59,6 +60,10 @@ Thumbs.db
 # Configuration files
 config.local.*
 *.local
+cmd/fetcher/config.json
+
+# Debug files
+debug_api_response.json
 
 # Generated files
 backtester.exe

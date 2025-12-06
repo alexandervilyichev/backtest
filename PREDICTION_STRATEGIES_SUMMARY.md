@@ -6,13 +6,16 @@
 
 1. **Golden Cross** - пересечение скользящих средних
 2. **Envelopes** - полосы волатильности
-3. **SuperTrend** - трендовый индикатор с ATR
-4. **Awesome Oscillator** - осциллятор рыночной энергии
-5. **RSI Oscillator** - индекс относительной силы
-6. **CCI Oscillator** - индекс товарного канала
-7. **Elliott Wave** - волновой анализ
-8. **Predictive Spline** - сплайн-интерполяция с предсказанием
-9. **Predictive Linear Spline** - линейная сплайн-интерполяция
+3. **Ulcer Index** - индикатор риска снижения
+4. **SuperTrend** - трендовый индикатор с ATR
+5. **Awesome Oscillator** - осциллятор рыночной энергии
+6. **RSI Oscillator** - индекс относительной силы
+7. **Stochastic Oscillator** - стохастический осциллятор
+8. **QStick Oscillator** - индикатор давления покупателей/продавцов
+9. **CCI Oscillator** - индекс товарного канала
+10. **Elliott Wave** - волновой анализ
+11. **Predictive Spline** - сплайн-интерполяция с предсказанием
+12. **Predictive Linear Spline** - линейная сплайн-интерполяция
 
 ## Сравнительная таблица
 
@@ -20,9 +23,12 @@
 |-----------|-----|-------------------|-----------|----------|--------------|
 | **Golden Cross** | Тренд | Пересечение MA | Средняя | Высокая | [GOLDEN_CROSS_PREDICTION.md](GOLDEN_CROSS_PREDICTION.md) |
 | **Envelopes** | Волатильность | Пробой полос | Средняя | Средняя | [ENVELOPES_V2_SUMMARY.md](ENVELOPES_V2_SUMMARY.md) |
+| **Ulcer Index** | Волатильность | Достижение порогов риска | Средняя | Средняя | [ULCER_INDEX_PREDICTION.md](ULCER_INDEX_PREDICTION.md) |
 | **SuperTrend** | Тренд + Волатильность | Пересечение с линией | Высокая | Высокая | [SUPERTREND_PREDICTION.md](SUPERTREND_PREDICTION.md) |
 | **Awesome Oscillator** | Осциллятор | Пересечение нуля | Низкая | Высокая | [AWESOME_OSCILLATOR_PREDICTION.md](AWESOME_OSCILLATOR_PREDICTION.md) |
 | **RSI Oscillator** | Осциллятор | Достижение порогов | Средняя | Высокая | [RSI_OSCILLATOR_PREDICTION.md](RSI_OSCILLATOR_PREDICTION.md) |
+| **Stochastic Oscillator** | Осциллятор | Пересечение %K и %D | Средняя | Высокая | [STOCHASTIC_OSCILLATOR_PREDICTION.md](STOCHASTIC_OSCILLATOR_PREDICTION.md) |
+| **QStick Oscillator** | Осциллятор | Достижение порогов | Низкая | Высокая | [QSTICK_OSCILLATOR_PREDICTION.md](QSTICK_OSCILLATOR_PREDICTION.md) |
 | **CCI Oscillator** | Осциллятор | Достижение порогов | Средняя | Высокая | - |
 | **Elliott Wave** | Волновой анализ | Завершение волны | Очень высокая | Средняя | - |
 

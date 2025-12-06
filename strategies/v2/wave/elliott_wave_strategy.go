@@ -52,6 +52,8 @@ type ElliottWaveConfig struct {
 	MaxWaveLength      int     `json:"max_wave_length"`
 	FibonacciThreshold float64 `json:"fibonacci_threshold"`
 	TrendStrength      float64 `json:"trend_strength"`
+	MinSignalDistance  int     `json:"min_signal_distance"` // минимальное расстояние между сигналами
+	AllowShort         bool    `json:"allow_short"`         // разрешить короткие позиции
 }
 
 func (c *ElliottWaveConfig) Validate() error {
@@ -67,12 +69,15 @@ func (c *ElliottWaveConfig) Validate() error {
 	if c.TrendStrength < 0 {
 		return errors.New("trend strength must be non-negative")
 	}
+	if c.MinSignalDistance < 0 {
+		return errors.New("min signal distance must be non-negative")
+	}
 	return nil
 }
 
 func (c *ElliottWaveConfig) String() string {
-	return fmt.Sprintf("ElliottWave(min_len=%d, max_len=%d, fib_thresh=%.3f, trend_str=%.1f)",
-		c.MinWaveLength, c.MaxWaveLength, c.FibonacciThreshold, c.TrendStrength)
+	return fmt.Sprintf("ElliottWave(min_len=%d, max_len=%d, fib_thresh=%.3f, trend_str=%.1f, min_sig_dist=%d, short=%v)",
+		c.MinWaveLength, c.MaxWaveLength, c.FibonacciThreshold, c.TrendStrength, c.MinSignalDistance, c.AllowShort)
 }
 
 type ElliottWaveSignalGenerator struct{}
@@ -251,7 +256,7 @@ func (sg *ElliottWaveSignalGenerator) PredictNextSignal(candles []internal.Candl
 type WavePoint struct {
 	Index    int     // индекс в массиве свечей
 	Price    float64 // цена точки
-	WaveType int     // тип волны (1, 2, 3, 4, 5, A, B, C)
+	WaveType int     // тип волны (1, 2, 3, 4, 5, A=6, B=7, C=8)
 	IsPeak   bool    // true для максимума, false для минимума
 	Strength float64 // сила волны (амплитуда движения)
 }
@@ -279,49 +284,60 @@ func NewElliottWaveAnalyzer(minLen, maxLen int, fibThresh, trendStr float64) *El
 }
 
 // findSignificantExtrema находит значимые экстремумы для волнового анализа
+// Оптимизированная версия с O(n) сложностью вместо O(n^2)
 func (ewa *ElliottWaveAnalyzer) findSignificantExtrema(prices []float64) {
 	ewa.wavePoints = make([]WavePoint, 0)
 
-	// Используем более мягкий алгоритм поиска экстремумов
+	if len(prices) < ewa.minWaveLength*2+1 {
+		return
+	}
+
 	lookback := ewa.minWaveLength
 
+	// Используем скользящее окно для эффективного поиска экстремумов O(n)
 	for i := lookback; i < len(prices)-lookback; i++ {
-		// Проверяем локальный максимум
+		currentPrice := prices[i]
 		isLocalMax := true
-		for j := i - lookback; j <= i+lookback; j++ {
-			if j != i && prices[j] > prices[i] {
-				isLocalMax = false
-				break
-			}
-		}
-
-		// Проверяем локальный минимум
 		isLocalMin := true
+		minInWindow := currentPrice
+		maxInWindow := currentPrice
+
+		// Проверяем окно вокруг текущей точки
 		for j := i - lookback; j <= i+lookback; j++ {
-			if j != i && prices[j] < prices[i] {
+			if j == i {
+				continue
+			}
+
+			price := prices[j]
+
+			// Обновляем min/max для расчета силы
+			if price < minInWindow {
+				minInWindow = price
+			}
+			if price > maxInWindow {
+				maxInWindow = price
+			}
+
+			// Проверяем условия экстремума
+			if price > currentPrice {
+				isLocalMax = false
+			}
+			if price < currentPrice {
 				isLocalMin = false
+			}
+
+			// Ранний выход если не экстремум
+			if !isLocalMax && !isLocalMin {
 				break
 			}
 		}
 
 		if isLocalMax || isLocalMin {
-			// Вычисляем силу экстремума как размах цен в окне
-			minInWindow := prices[i]
-			maxInWindow := prices[i]
-			for j := i - lookback; j <= i+lookback; j++ {
-				if prices[j] < minInWindow {
-					minInWindow = prices[j]
-				}
-				if prices[j] > maxInWindow {
-					maxInWindow = prices[j]
-				}
-			}
-
 			strength := maxInWindow - minInWindow
 
 			point := WavePoint{
 				Index:    i,
-				Price:    prices[i],
+				Price:    currentPrice,
 				IsPeak:   isLocalMax,
 				Strength: strength,
 			}
@@ -368,66 +384,176 @@ func (ewa *ElliottWaveAnalyzer) filterByWaveLength() {
 	ewa.wavePoints = filtered
 }
 
-// identifyWavePattern идентифицирует паттерн волн Эллиотта
+// identifyWavePattern идентифицирует паттерн волн Эллиотта с валидацией по правилам теории
 func (ewa *ElliottWaveAnalyzer) identifyWavePattern() []WavePoint {
-	if len(ewa.wavePoints) < 3 {
+	if len(ewa.wavePoints) < 5 {
 		return ewa.wavePoints
 	}
 
-	// Определяем направление тренда
+	// Определяем направление тренда по первым точкам
 	trendDirection := 0.0
 	if len(ewa.wavePoints) >= 2 {
 		trendDirection = ewa.wavePoints[len(ewa.wavePoints)-1].Price - ewa.wavePoints[0].Price
 	}
+	ewa.trendDirection = trendDirection
 
-	waveNumber := 1
-	inImpulse := true // начинаем с импульсной волны
+	// Присваиваем типы волн с учетом правил Эллиотта
+	waveIdx := 0
+	impulseWaves := []int{1, 2, 3, 4, 5}
+	correctionWaves := []int{6, 7, 8} // A=6, B=7, C=8
+
+	inImpulse := true
+	impulseCount := 0
+	correctionCount := 0
 
 	for i := 0; i < len(ewa.wavePoints); i++ {
 		point := &ewa.wavePoints[i]
 
 		if inImpulse {
-			// Импульсные волны (1, 3, 5)
-			if trendDirection > 0 {
-				point.WaveType = waveNumber
-			} else {
-				point.WaveType = -waveNumber // отрицательные для нисходящего тренда
-			}
+			if impulseCount < len(impulseWaves) {
+				point.WaveType = impulseWaves[impulseCount]
+				impulseCount++
 
-			waveNumber++
-			if waveNumber > 5 {
-				inImpulse = false
-				waveNumber = 1
+				// Валидация волн по правилам Эллиотта
+				if impulseCount >= 3 && !ewa.validateImpulseWaves(i) {
+					// Если валидация не прошла, сбрасываем счетчик
+					impulseCount = 0
+					point.WaveType = 1 // Wave1
+				}
+
+				if impulseCount >= 5 {
+					inImpulse = false
+					impulseCount = 0
+				}
 			}
 		} else {
-			// Коррекционные волны (2, 4) или (A, B, C)
-			if trendDirection > 0 {
-				point.WaveType = 10 + waveNumber // A=11, B=12, C=13
-			} else {
-				point.WaveType = -(10 + waveNumber)
-			}
+			if correctionCount < len(correctionWaves) {
+				point.WaveType = correctionWaves[correctionCount]
+				correctionCount++
 
-			waveNumber++
-			if waveNumber > 3 {
-				inImpulse = true
-				waveNumber = 1
+				if correctionCount >= 3 {
+					inImpulse = true
+					correctionCount = 0
+				}
 			}
 		}
-	}
 
-	// Сохраняем направление тренда для использования в сигналах
-	ewa.trendDirection = trendDirection
+		waveIdx++
+	}
 
 	return ewa.wavePoints
 }
 
-// predictSignal генерирует торговый сигнал на основе волнового анализа
-func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64) internal.SignalType {
+// validateImpulseWaves проверяет правила Эллиотта для импульсных волн
+func (ewa *ElliottWaveAnalyzer) validateImpulseWaves(currentIdx int) bool {
+	if currentIdx < 4 {
+		return true // недостаточно волн для валидации
+	}
+
+	// Находим последние 5 точек для проверки
+	startIdx := currentIdx - 4
+	if startIdx < 0 {
+		return true
+	}
+
+	wave1Idx := startIdx
+	wave2Idx := startIdx + 1
+	wave3Idx := startIdx + 2
+	wave4Idx := startIdx + 3
+	wave5Idx := startIdx + 4
+
+	if wave5Idx >= len(ewa.wavePoints) {
+		return true
+	}
+
+	wave1 := ewa.wavePoints[wave1Idx]
+	wave2 := ewa.wavePoints[wave2Idx]
+	wave3 := ewa.wavePoints[wave3Idx]
+	wave4 := ewa.wavePoints[wave4Idx]
+
+	// Правило 1: Волна 2 не должна откатываться более чем на 100% от волны 1
+	if wave1.IsPeak != wave2.IsPeak {
+		if ewa.trendDirection > 0 {
+			// Восходящий тренд: wave2 не должна быть ниже начала wave1
+			if wave2.Price < wave1.Price {
+				return false
+			}
+		} else {
+			// Нисходящий тренд: wave2 не должна быть выше начала wave1
+			if wave2.Price > wave1.Price {
+				return false
+			}
+		}
+	}
+
+	// Правило 2: Волна 3 не должна быть самой короткой импульсной волной
+	if wave3Idx < len(ewa.wavePoints) {
+		wave1Length := internal.Abs(wave2.Price - wave1.Price)
+		wave3Length := internal.Abs(wave3.Price - wave2.Price)
+
+		if wave5Idx < len(ewa.wavePoints) {
+			wave5 := ewa.wavePoints[wave5Idx]
+			wave5Length := internal.Abs(wave5.Price - wave4.Price)
+
+			// Волна 3 не должна быть короче волн 1 и 5
+			if wave3Length < wave1Length && wave3Length < wave5Length {
+				return false
+			}
+		}
+	}
+
+	// Правило 3: Волна 4 не должна входить в территорию волны 1
+	if wave4Idx < len(ewa.wavePoints) {
+		if ewa.trendDirection > 0 {
+			// Восходящий тренд: wave4 не должна быть ниже вершины wave1
+			if wave4.Price < wave1.Price {
+				return false
+			}
+		} else {
+			// Нисходящий тренд: wave4 не должна быть выше дна wave1
+			if wave4.Price > wave1.Price {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// validateFibonacciRetracement проверяет уровни коррекции Фибоначчи между волнами
+func (ewa *ElliottWaveAnalyzer) validateFibonacciRetracement(wave1, wave2 WavePoint) bool {
+	if wave1.Index >= wave2.Index {
+		return false
+	}
+
+	// Вычисляем откат в процентах
+	waveMove := internal.Abs(wave2.Price - wave1.Price)
+	if waveMove == 0 {
+		return false
+	}
+
+	// Для волны 2: откат должен быть между 38.2% и 61.8% от волны 1
+	retracementLevels := []float64{0.236, 0.382, 0.5, 0.618, 0.786}
+
+	currentRetrace := internal.Abs(wave2.Price-wave1.Price) / waveMove
+
+	// Проверяем, попадает ли откат в допустимые уровни Фибоначчи
+	for _, level := range retracementLevels {
+		if internal.Abs(currentRetrace-level) < ewa.fibThreshold {
+			return true
+		}
+	}
+
+	return false
+}
+
+// predictSignal генерирует торговый сигнал на основе волнового анализа и типов волн
+func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64, allowShort bool) internal.SignalType {
 	if len(ewa.wavePoints) < 2 {
 		return internal.HOLD
 	}
 
-	// Находим ближайшую волновую точку
+	// Находим ближайшую волновую точку и предыдущие
 	var lastWavePoint *WavePoint
 	var prevWavePoint *WavePoint
 
@@ -446,8 +572,6 @@ func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64
 	}
 
 	currentPrice := prices[currentIndex]
-
-	// Расстояние от последней волновой точки
 	distanceFromWave := currentIndex - lastWavePoint.Index
 
 	// Не генерируем сигналы слишком близко к волновой точке
@@ -455,22 +579,73 @@ func (ewa *ElliottWaveAnalyzer) predictSignal(currentIndex int, prices []float64
 		return internal.HOLD
 	}
 
-	// Проверяем пробой уровней
-	priceChangePercent := (currentPrice - lastWavePoint.Price) / lastWavePoint.Price
+	// Используем тип волны для генерации сигналов
+	waveType := lastWavePoint.WaveType
+	if waveType < 0 {
+		waveType = -waveType
+	}
 
-	// Сигнал на пробой после минимума (восходящий импульс)
-	if !lastWavePoint.IsPeak && priceChangePercent > 0.01 {
-		// Дополнительная проверка: цена должна быть выше предыдущего максимума
-		if prevWavePoint != nil && prevWavePoint.IsPeak && currentPrice > prevWavePoint.Price {
-			return internal.BUY
+	// BUY сигналы: начало волн 1, 3, 5 (после коррекции)
+	if !lastWavePoint.IsPeak {
+		// После минимума - потенциальное начало импульсной волны
+		priceChange := (currentPrice - lastWavePoint.Price) / lastWavePoint.Price
+
+		// Проверяем, что цена начала расти
+		if priceChange > 0.005 {
+			// Волна 2 или 4 завершилась - начинается волна 3 или 5
+			if waveType == 2 || waveType == 4 || waveType == 8 { // Wave2, Wave4, WaveC
+				// Валидация Фибоначчи для коррекционных волн
+				if prevWavePoint != nil && ewa.validateFibonacciRetracement(*prevWavePoint, *lastWavePoint) {
+					return internal.BUY
+				}
+				// Даже без идеальной коррекции Фибоначчи, если тренд сильный
+				if priceChange > 0.015 {
+					return internal.BUY
+				}
+			}
+
+			// Начало нового импульса после коррекции ABC
+			if waveType == 8 && priceChange > 0.01 { // WaveC
+				return internal.BUY
+			}
 		}
 	}
 
-	// Сигнал на пробой после максимума (нисходящий импульс)
-	if lastWavePoint.IsPeak && priceChangePercent < -0.01 {
-		// Дополнительная проверка: цена должна быть ниже предыдущего минимума
-		if prevWavePoint != nil && !prevWavePoint.IsPeak && currentPrice < prevWavePoint.Price {
-			return internal.SELL
+	// SELL сигналы: конец волны 5 или во время коррекционных волн
+	if lastWavePoint.IsPeak {
+		priceChange := (currentPrice - lastWavePoint.Price) / lastWavePoint.Price
+
+		// Проверяем, что цена начала падать
+		if priceChange < -0.005 {
+			// Волна 5 завершилась - начинается коррекция
+			if waveType == 5 { // Wave5
+				return internal.SELL
+			}
+
+			// Волна 1 или 3 завершилась - начинается коррекция 2 или 4
+			if waveType == 1 || waveType == 3 { // Wave1, Wave3
+				if priceChange < -0.01 {
+					return internal.SELL
+				}
+			}
+
+			// Волна B завершилась - начинается волна C
+			if waveType == 7 && priceChange < -0.015 { // WaveB
+				return internal.SELL
+			}
+		}
+	}
+
+	// Дополнительная логика для коротких позиций (если разрешено)
+	if allowShort {
+		// SHORT сигналы в нисходящем тренде
+		if ewa.trendDirection < 0 {
+			if !lastWavePoint.IsPeak {
+				priceChange := (currentPrice - lastWavePoint.Price) / lastWavePoint.Price
+				if priceChange < -0.01 && (waveType == 3 || waveType == 5) { // Wave3, Wave5
+					return internal.SELL
+				}
+			}
 		}
 	}
 
@@ -489,10 +664,12 @@ func (s *ElliottWaveStrategy) Name() string {
 func (s *ElliottWaveSignalGenerator) GenerateSignals(candles []internal.Candle, config internal.StrategyConfigV2) []internal.SignalType {
 	ewConfig, ok := config.(*ElliottWaveConfig)
 	if !ok {
+		log.Printf("❌ Ошибка: неверный тип конфигурации для Elliott Wave стратегии")
 		return make([]internal.SignalType, len(candles))
 	}
 
 	if err := ewConfig.Validate(); err != nil {
+		log.Printf("❌ Ошибка валидации конфигурации Elliott Wave: %v", err)
 		return make([]internal.SignalType, len(candles))
 	}
 
@@ -510,18 +687,24 @@ func (s *ElliottWaveSignalGenerator) GenerateSignals(candles []internal.Candle, 
 	// Создаем и обучаем анализатор волн
 	analyzer := NewElliottWaveAnalyzer(ewConfig.MinWaveLength, ewConfig.MaxWaveLength, ewConfig.FibonacciThreshold, ewConfig.TrendStrength)
 	analyzer.findSignificantExtrema(prices)
-	// wavePoints := analyzer.identifyWavePattern()
+	wavePoints := analyzer.identifyWavePattern()
 
-	// log.Printf("✅ Найдено %d волновых точек", len(wavePoints))
+	log.Printf("✅ Найдено %d волновых точек для Elliott Wave анализа", len(wavePoints))
 
-	// Генерируем сигналы
+	// Генерируем сигналы на основе волновых паттернов
 	signals := make([]internal.SignalType, len(candles))
 	inLongPosition := false
+	inShortPosition := false
 	lastSignalIndex := -1
-	minSignalDistance := 10 // минимальное расстояние между сигналами
+
+	// Используем параметр из конфигурации
+	minSignalDistance := ewConfig.MinSignalDistance
+	if minSignalDistance == 0 {
+		minSignalDistance = 10 // значение по умолчанию
+	}
 
 	for i := 20; i < len(candles); i++ {
-		signal := analyzer.predictSignal(i, prices)
+		signal := analyzer.predictSignal(i, prices, ewConfig.AllowShort)
 
 		// Проверяем минимальное расстояние между сигналами
 		if lastSignalIndex >= 0 && i-lastSignalIndex < minSignalDistance {
@@ -529,17 +712,49 @@ func (s *ElliottWaveSignalGenerator) GenerateSignals(candles []internal.Candle, 
 			continue
 		}
 
-		// Простая логика: только длинные позиции
-		if !inLongPosition && signal == internal.BUY {
-			signals[i] = internal.BUY
-			inLongPosition = true
-			lastSignalIndex = i
-		} else if inLongPosition && signal == internal.SELL {
-			signals[i] = internal.SELL
-			inLongPosition = false
-			lastSignalIndex = i
+		// Логика для длинных и коротких позиций
+		if ewConfig.AllowShort {
+			// Разрешены и длинные, и короткие позиции
+			if signal == internal.BUY {
+				if inShortPosition {
+					// Закрываем короткую позицию
+					signals[i] = internal.BUY
+					inShortPosition = false
+					lastSignalIndex = i
+				} else if !inLongPosition {
+					// Открываем длинную позицию
+					signals[i] = internal.BUY
+					inLongPosition = true
+					lastSignalIndex = i
+				}
+			} else if signal == internal.SELL {
+				if inLongPosition {
+					// Закрываем длинную позицию
+					signals[i] = internal.SELL
+					inLongPosition = false
+					lastSignalIndex = i
+				} else if !inShortPosition {
+					// Открываем короткую позицию
+					signals[i] = internal.SELL
+					inShortPosition = true
+					lastSignalIndex = i
+				}
+			} else {
+				signals[i] = internal.HOLD
+			}
 		} else {
-			signals[i] = internal.HOLD
+			// Только длинные позиции
+			if !inLongPosition && signal == internal.BUY {
+				signals[i] = internal.BUY
+				inLongPosition = true
+				lastSignalIndex = i
+			} else if inLongPosition && signal == internal.SELL {
+				signals[i] = internal.SELL
+				inLongPosition = false
+				lastSignalIndex = i
+			} else {
+				signals[i] = internal.HOLD
+			}
 		}
 	}
 
@@ -553,20 +768,29 @@ func NewElliottWaveConfigGenerator() *ElliottWaveConfigGenerator {
 }
 
 func (s *ElliottWaveConfigGenerator) Generate() []internal.StrategyConfigV2 {
+	// Генерируем конфигурации с новыми параметрами
+	configs := []internal.StrategyConfigV2{}
 
-	configs := lo.CrossJoinBy4(
-		lo.RangeWithSteps[int](3, 10, 1),
-		lo.RangeWithSteps[int](30, 80, 10),
-		lo.RangeWithSteps[float64](0.5, 0.8, 0.1),
-		lo.RangeWithSteps[float64](0.2, 0.5, 0.1),
-		func(minLen int, maxLen int, fibThresh float64, trendStr float64) internal.StrategyConfigV2 {
-			return &ElliottWaveConfig{
-				MinWaveLength:      minLen,
-				MaxWaveLength:      maxLen,
-				FibonacciThreshold: fibThresh,
-				TrendStrength:      trendStr,
+	for _, minLen := range lo.RangeWithSteps(3, 10, 2) {
+		for _, maxLen := range lo.RangeWithSteps(30, 80, 20) {
+			for _, fibThresh := range lo.RangeWithSteps(0.5, 0.8, 0.15) {
+				for _, trendStr := range lo.RangeWithSteps(0.2, 0.5, 0.15) {
+					for _, minSigDist := range []int{5, 10, 15} {
+						for _, allowShort := range []bool{false, true} {
+							configs = append(configs, &ElliottWaveConfig{
+								MinWaveLength:      minLen,
+								MaxWaveLength:      maxLen,
+								FibonacciThreshold: fibThresh,
+								TrendStrength:      trendStr,
+								MinSignalDistance:  minSigDist,
+								AllowShort:         allowShort,
+							})
+						}
+					}
+				}
 			}
-		})
+		}
+	}
 
 	return configs
 }

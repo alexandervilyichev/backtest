@@ -1,0 +1,12 @@
+{
+  "api_token": "t.BMitMVYp5wkFexzE7M_losV13ejvi8JeKzp__P2dCw7s4jGOpRLiZ8xEt3r73atcAA2dNa5YSmJXrZzLQ0e-9g",
+  "instrument_id": "TCS60A1039N1",
+  "interval": "CANDLE_INTERVAL_30_MIN",
+  "limit": 1000,
+  "api_endpoint": "https://invest-public-api.tbank.ru/rest/tinkoff.public.invest.api.contract.v1.MarketDataService/GetCandles",
+  "output_file": "tbru_big.json",
+  "month_step_days": 30,
+  "request_timeout_seconds": 15,
+  "request_delay_ms": 100,
+  "max_candles_limit": 500000
+}
