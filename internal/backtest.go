@@ -29,12 +29,25 @@ func Backtest(candles []Candle, signals []SignalType, slippage float64) Backtest
 
 		switch signal {
 		case BUY:
+			// По умолчанию покупаем полностью (для обычных стратегий)
+			// Для DCA стратегий частичные покупки обрабатываются через несколько BUY сигналов
 			if holdings == 0 && cashCurrent > 0 {
 				effectivePrice := price + slippage
 				holdings = cashCurrent / effectivePrice
 				cashCurrent = 0
 				//	fmt.Printf("📈 BUY at %.2f (effective %.2f, candle %d, %s)\n", price, effectivePrice, i, candles[i].Time)
 				firstTradeExecuted = true
+			} else if holdings > 0 && cashCurrent > 0 {
+				// Поддержка частичных покупок для DCA стратегий (усреднение)
+				effectivePrice := price + slippage
+				// Покупаем на часть доступных средств для усреднения
+				buyAmount := cashCurrent * 0.5 // Покупаем на 50% доступных средств
+				if buyAmount > 0 {
+					newHoldings := buyAmount / effectivePrice
+					holdings += newHoldings
+					cashCurrent -= buyAmount
+					//	fmt.Printf("📈 BUY (averaging) at %.2f (effective %.2f, candle %d, %s)\n", price, effectivePrice, i, candles[i].Time)
+				}
 			}
 		case SELL:
 			// КРИТИЧНО: Первая сделка должна быть BUY, игнорируем SELL до первого BUY
@@ -43,10 +56,12 @@ func Backtest(candles []Candle, signals []SignalType, slippage float64) Backtest
 			}
 			if holdings > 0 {
 				effectivePrice := price - slippage
-				cashCurrent = holdings * effectivePrice
+				// По умолчанию продаем полностью (для обычных стратегий)
+				// Для DCA стратегий частичные продажи обрабатываются через несколько SELL сигналов
+				cashCurrent += holdings * effectivePrice
 				holdings = 0
-				//	fmt.Printf("📉 SELL at %.2f (effective %.2f, candle %d, %s)\n", price, effectivePrice, i, candles[i].Time)
 				tradeCount++ // Считаем полную сделку (пару BUY+SELL) только при SELL
+				//	fmt.Printf("📉 SELL at %.2f (effective %.2f, candle %d, %s)\n", price, effectivePrice, i, candles[i].Time)
 			}
 		}
 

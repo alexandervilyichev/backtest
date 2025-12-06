@@ -24,6 +24,14 @@
     "buy_level": -200,
     "sell_level": 205
   },
+  "dollar_cost_averaging_v2": {
+    "drop_threshold": 0.02,
+    "rise_threshold": 0.01,
+    "max_position_size": 1,
+    "buy_ratio": 0.2,
+    "sell_ratio": 0.2,
+    "min_hold_period": 4
+  },
   "elliott_wave_advanced_v2": {
     "min_wave_length": 5,
     "max_wave_length": 50,
@@ -187,8 +195,8 @@
     "sell_threshold": 83
   },
   "stochastic_oscillator": {
-    "k_period": 18,
-    "d_period": 5,
+    "k_period": 12,
+    "d_period": 4,
     "buy_level": 15,
     "sell_level": 85
   },
